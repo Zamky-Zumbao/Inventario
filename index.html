@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+<title>Salida de Productos · GRRD · Las Condes</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --azul: #1664c0;
+    --azul-claro: #4087cf;
+    --gris-fondo: #f5f7fc;
+    --blanco: #ffffff;
+    --texto-oscuro: #1a2634;
+    --texto-gris: #4a5a6e;
+    --borde: #e2e8f0;
+    --verde: #2c9e8c;
+    --rojo: #e74c3c;
+    --naranja: #e08e0b;
+    --shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  body {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    background: var(--gris-fondo);
+    color: var(--texto-oscuro);
+    min-height: 100vh;
+    padding: 0 0 80px 0;
+  }
+  .header {
+    background: linear-gradient(135deg, var(--azul) 0%, #0f4a8a 100%);
+    padding: 10px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .logo-muni {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-texto {
+    font-weight: 700;
+    font-size: 10px;
+    color: white;
+    line-height: 1.2;
+  }
+  .logo-texto small { font-size: 7.5px; font-weight: 400; opacity: 0.85; display: block; }
+  .header-titulo {
+    font-size: 14px;
+    font-weight: 800;
+    color: white;
+    letter-spacing: 0.5px;
+  }
+  .badge-excel {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 9px;
+    font-weight: 700;
+    color: white;
+  }
+  .badge-excel.guardado { background: #1A6E42; }
+  .badge-excel.inicial { background: #e08e0b; }
+  .badge-excel.restaurado { background: #8B0000; }
+  .section {
+    background: var(--blanco);
+    border-radius: 20px;
+    margin: 10px 14px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--borde);
+  }
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--azul);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-left: 3px solid var(--azul);
+    padding-left: 10px;
+  }
+  .tabs-familias {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 2px 0 8px 0;
+    scrollbar-width: thin;
+  }
+  .tabs-familias::-webkit-scrollbar { height: 3px; }
+  .tabs-familias::-webkit-scrollbar-thumb { background: var(--azul-claro); border-radius: 10px; }
+  .tab-familia {
+    flex: 0 0 auto;
+    padding: 6px 14px;
+    border-radius: 30px;
+    border: 1.5px solid var(--borde);
+    background: #f8fafc;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+    color: var(--texto-gris);
+    white-space: nowrap;
+  }
+  .tab-familia.active {
+    background: var(--azul);
+    border-color: var(--azul);
+    color: white;
+    box-shadow: 0 2px 6px rgba(22,100,192,0.25);
+  }
+  label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--texto-gris);
+    margin-bottom: 4px;
+  }
+  label.required::after { content: " *"; color: var(--rojo); }
+  input, select, textarea {
+    width: 100%;
+    background: #ffffff;
+    border: 1.5px solid var(--borde);
+    border-radius: 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    padding: 9px 12px;
+    outline: none;
+    transition: 0.2s;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--azul);
+    box-shadow: 0 0 0 3px rgba(22,100,192,0.12);
+  }
+  .field { margin-bottom: 12px; }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .btn-primario {
+    background: var(--azul);
+    border: none;
+    padding: 12px;
+    width: 100%;
+    border-radius: 50px;
+    font-weight: 700;
+    color: white;
+    font-size: 15px;
+    cursor: pointer;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-primario:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-primario:active { transform: scale(0.97); }
+  .btn-secundario {
+    background: #eef2f8;
+    border: none;
+    padding: 10px;
+    width: 100%;
+    border-radius: 50px;
+    font-weight: 600;
+    color: var(--texto-gris);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .btn-descargar-excel {
+    background: #1A6E42;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    padding: 8px 16px;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-descargar-excel:hover { opacity: 0.85; }
+  .btn-restaurar {
+    background: #8B0000;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    padding: 8px 16px;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-restaurar:hover { opacity: 0.85; }
+  .btn-agregar-producto {
+    background: var(--verde);
+    color: white;
+    border: none;
+    border-radius: 30px;
+    padding: 8px 16px;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .btn-agregar-producto:hover { opacity: 0.85; }
+  .btn-agregar-producto:disabled { opacity: 0.4; cursor: not-allowed; }
+  .custom-dropdown { position: relative; }
+  .dropdown-input {
+    width: 100%;
+    background: #ffffff;
+    border: 1.5px solid var(--borde);
+    border-radius: 12px;
+    font-size: 14px;
+    padding: 9px 12px;
+    outline: none;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .dropdown-input:focus { border-color: var(--azul); box-shadow: 0 0 0 3px rgba(22,100,192,0.12); }
+  .dropdown-list {
+    background: white;
+    border: 1.5px solid var(--azul);
+    border-radius: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+    position: absolute;
+    width: 100%;
+    z-index: 999;
+    display: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  }
+  .dropdown-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    border-bottom: 1px solid var(--borde);
+  }
+  .dropdown-item:last-child { border-bottom: none; }
+  .dropdown-item:hover { background: rgba(22,100,192,0.06); }
+  .selector-tallas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .selector-tallas .talla-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 56px;
+    padding: 8px 4px;
+    border-radius: 10px;
+    border: 2px solid var(--borde);
+    background: white;
+    text-align: center;
+    cursor: pointer;
+    transition: 0.2s;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--texto-oscuro);
+    line-height: 1.2;
+  }
+  .selector-tallas .talla-item .talla-nombre { display: block; font-size: 14px; font-weight: 700; }
+  .selector-tallas .talla-item .talla-stock { display: block; font-size: 9px; color: var(--texto-gris); font-weight: 400; }
+  .selector-tallas .talla-item.sin-stock { opacity: 0.35; cursor: not-allowed; background: #f5f5f5; border-color: #ddd; }
+  .selector-tallas .talla-item.con-stock { cursor: pointer; }
+  .selector-tallas .talla-item.con-stock:hover { border-color: var(--azul); background: #f0f5ff; transform: scale(1.02); }
+  .selector-tallas .talla-item.active { border-color: var(--azul); background: var(--azul); color: white; }
+  .selector-tallas .talla-item.stock-bajo { border-color: var(--naranja); }
+  .selector-tallas .talla-item.stock-bajo.active { background: var(--naranja); border-color: var(--naranja); }
+  .producto-seleccionado {
+    background: #f0f5ff;
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    border: 1px solid var(--azul-claro);
+    display: none;
+  }
+  .producto-seleccionado .prod-subtitulo { font-size: 11px; font-weight: 600; color: var(--texto-gris); margin-bottom: 2px; }
+  .producto-seleccionado .prod-nombre { font-size: 15px; font-weight: 700; color: var(--azul); }
+  .producto-seleccionado .prod-stock { font-size: 12px; color: var(--texto-gris); }
+  .ticket {
+    background: #fafcfd;
+    border: 2px dashed var(--azul-claro);
+    border-radius: 16px;
+    padding: 16px;
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+    margin: 8px 0;
+  }
+  .ticket .ticket-header { text-align: center; border-bottom: 1px dashed #aaa; padding-bottom: 8px; margin-bottom: 8px; }
+  .ticket .ticket-header h3 { font-size: 13px; color: var(--azul); }
+  .ticket .ticket-fila { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dotted #eee; }
+  .ticket .ticket-fila .label { color: var(--texto-gris); font-weight: 500; }
+  .ticket .ticket-fila .valor { font-weight: 700; }
+  .ticket .ticket-firma { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #aaa; }
+  .ticket .ticket-firma .firma-linea { text-align: center; flex: 1; }
+  .ticket .ticket-firma .firma-linea .linea { border-top: 1px solid #333; width: 80%; margin: 6px auto 2px; }
+  .ticket .ticket-footer { text-align: center; font-size: 8px; color: var(--texto-gris); margin-top: 8px; border-top: 1px dashed #aaa; padding-top: 8px; }
+  .ticket .ticket-productos { margin: 6px 0; }
+  .ticket .ticket-productos .prod-item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 10px; border-bottom: 1px dotted #eee; }
+  .resumen-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .resumen-card {
+    background: #f8fafc;
+    border-radius: 14px;
+    padding: 10px 8px;
+    text-align: center;
+    border: 1px solid var(--borde);
+  }
+  .resumen-card .num { font-size: 22px; font-weight: 800; color: var(--azul); }
+  .resumen-card .lbl { font-size: 8.5px; color: var(--texto-gris); text-transform: uppercase; letter-spacing: 0.3px; }
+  .resumen-card.rojo .num { color: var(--rojo); }
+  .resumen-card.verde .num { color: var(--verde); }
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    align-items: flex-end;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal {
+    background: white;
+    max-height: 92vh;
+    border-radius: 28px 28px 0 0;
+    overflow: auto;
+    padding: 18px 16px 30px;
+    width: 100%;
+  }
+  .modal .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .modal .modal-header h2 { font-size: 16px; }
+  .btn-cerrar-modal {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: var(--texto-gris);
+  }
+  #toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a2634;
+    color: white;
+    padding: 8px 20px;
+    border-radius: 40px;
+    opacity: 0;
+    transition: 0.3s;
+    pointer-events: none;
+    z-index: 300;
+    font-size: 12px;
+    font-weight: 500;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+  #toast.show { opacity: 1; }
+  .receptor-card {
+    background: #f8fafc;
+    border: 1px solid var(--borde);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    position: relative;
+  }
+  .receptor-card .btn-eliminar { position: absolute; top: 6px; right: 8px; background: none; border: none; color: var(--rojo); cursor: pointer; font-size: 14px; }
+  .receptor-card .receptor-nombre { font-weight: 600; font-size: 13px; }
+  .receptor-card .receptor-email { font-size: 11px; color: var(--texto-gris); }
+  .btn-agregar-receptor {
+    background: transparent;
+    border: 1.5px dashed var(--azul);
+    color: var(--azul);
+    font-weight: 600;
+    border-radius: 30px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: 0.2s;
+    width: 100%;
+    margin-top: 6px;
+  }
+  .btn-agregar-receptor:hover { background: rgba(22,100,192,0.05); }
+  .btn-agregar-receptor:disabled { opacity: 0.4; cursor: not-allowed; }
+  .usuario-info {
+    background: #e8f0fe;
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    border: 1px solid var(--azul-claro);
+  }
+  .usuario-info .label { font-size: 10px; color: var(--texto-gris); text-transform: uppercase; letter-spacing: 0.5px; }
+  .usuario-info .valor { font-weight: 600; font-size: 14px; color: var(--azul); }
+  .empty-state { text-align: center; color: var(--texto-gris); font-size: 12px; padding: 20px 0; }
+  .header-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .producto-agregado {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid var(--borde);
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+  }
+  .producto-agregado .info { flex: 1; }
+  .producto-agregado .info .nombre { font-weight: 600; font-size: 13px; }
+  .producto-agregado .info .detalle { font-size: 11px; color: var(--texto-gris); }
+  .producto-agregado .cantidad { font-weight: 700; font-size: 14px; color: var(--rojo); margin: 0 12px; }
+  .producto-agregado .btn-eliminar-prod {
+    background: none;
+    border: none;
+    color: var(--rojo);
+    cursor: pointer;
+    font-size: 16px;
+  }
+  .producto-agregado .btn-eliminar-prod:hover { opacity: 0.7; }
+  footer { text-align: center; color: var(--texto-gris); font-size: 9px; padding: 16px 16px 30px; opacity: 0.7; }
+
+  /* --- Mensaje de Productos Despachados --- */
+  .despacho-mensaje {
+    background: #e8f5e9;
+    border-left: 4px solid var(--verde);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 12px;
+    display: none;
+    animation: fadeIn 0.5s ease;
+  }
+  .despacho-mensaje .titulo {
+    font-weight: 700;
+    color: #1e6b3b;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .despacho-mensaje .detalle {
+    font-size: 12px;
+    color: #2d5a3d;
+    margin-top: 4px;
+  }
+  .despacho-mensaje .productos-list {
+    margin-top: 6px;
+    padding-left: 16px;
+    font-size: 12px;
+    color: #1a4a2a;
+    list-style: none;
+  }
+  .despacho-mensaje .productos-list li {
+    padding: 3px 0;
+    border-bottom: 1px dotted #c8e6c9;
+    display: flex;
+    justify-content: space-between;
+  }
+  .despacho-mensaje .productos-list li .cant {
+    font-weight: 600;
+  }
+  .despacho-mensaje .total {
+    margin-top: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    color: #1a4a2a;
+    padding-top: 8px;
+    border-top: 2px solid #a5d6a7;
+  }
+  .despacho-mensaje .btn-nueva-salida {
+    margin-top: 12px;
+    background: var(--verde);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 10px 24px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    width: 100%;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .despacho-mensaje .btn-nueva-salida:hover {
+    opacity: 0.85;
+    transform: scale(1.01);
+  }
+  .despacho-mensaje .btn-nueva-salida:active {
+    transform: scale(0.97);
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 600px) {
+    .header-titulo { font-size: 12px; }
+    .logo-texto { font-size: 8px; }
+    .resumen-grid { grid-template-columns: 1fr 1fr 1fr; }
+    .row-2 { grid-template-columns: 1fr; }
+    .section { margin: 8px 10px; padding: 12px; }
+    .ticket { font-size: 10px; }
+    .selector-tallas .talla-item { min-width: 48px; padding: 6px 2px; font-size: 12px; }
+    .header-actions { gap: 4px; }
+    .header-actions .btn-descargar-excel { font-size: 10px; padding: 4px 10px; }
+    .header-actions .btn-restaurar { font-size: 10px; padding: 4px 10px; }
+    .despacho-mensaje .productos-list li {
+      font-size: 11px;
+      flex-wrap: wrap;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-top">
+    <div class="logo-muni">
+      <div class="logo-texto">
+        🏛️ MUNICIPALIDAD DE LAS CONDES
+        <small>Depto. Gestión de Riesgos y Desastres</small>
+      </div>
+    </div>
+    <div class="header-titulo">📦 SALIDA DE PRODUCTOS</div>
+    <div class="header-actions">
+      <span class="badge-excel inicial" id="excel-status">📊 Cargando...</span>
+      <button class="btn-descargar-excel" onclick="descargarExcelActualizado()">⬇️ Exportar</button>
+      <button class="btn-restaurar" onclick="restaurarDatosIniciales()">↩️ Restaurar</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESUMEN -->
+<div class="section">
+  <div class="section-label">📊 Resumen del día</div>
+  <div class="resumen-grid">
+    <div class="resumen-card"><div class="num" id="res-salidas-hoy">0</div><div class="lbl">Salidas hoy</div></div>
+    <div class="resumen-card rojo"><div class="num" id="res-unidades-hoy">0</div><div class="lbl">Unidades entregadas</div></div>
+    <div class="resumen-card verde"><div class="num" id="res-productos-unicos">0</div><div class="lbl">Productos distintos</div></div>
+  </div>
+</div>
+
+<!-- REGISTRAR SALIDA -->
+<div class="section" id="formulario-salida">
+  <div class="section-label">⬆️ Nueva Salida</div>
+
+  <div class="usuario-info">
+    <div class="label">👤 Entregado por</div>
+    <div class="valor" id="usuario-nombre">--</div>
+  </div>
+
+  <!-- SELECCIÓN DE PRODUCTOS -->
+  <div class="field">
+    <label>📂 Familia de productos</label>
+    <div class="tabs-familias" id="tabs-familias"></div>
+  </div>
+
+  <div class="field">
+    <label class="required">Agregar producto</label>
+    <div class="custom-dropdown">
+      <input type="text" id="prod-trigger" class="dropdown-input" placeholder="Selecciona un producto..." readonly>
+      <div class="dropdown-list" id="prod-list"></div>
+    </div>
+  </div>
+
+  <div id="producto-seleccionado-container" class="producto-seleccionado" style="display:none;">
+    <div class="prod-nombre" id="prod-nombre-seleccionado">Producto</div>
+    <div class="prod-stock" id="prod-stock-disponible">Stock disponible: 0 unidades</div>
+    <div id="selector-tallas-container" style="display:none;">
+      <div class="prod-subtitulo" style="margin-top:6px;">📏 Selecciona una talla:</div>
+      <div class="selector-tallas" id="selector-tallas"></div>
+      <div id="talla-seleccionada-info" style="font-size:10px; color:var(--texto-gris); margin-top:6px;"></div>
+    </div>
+    <div class="row-2" style="margin-top:8px;">
+      <div class="field" style="margin-bottom:0;">
+        <label>Cantidad</label>
+        <input type="number" id="salida-cantidad" min="1" placeholder="0">
+      </div>
+      <div class="field" style="margin-bottom:0; display:flex; align-items:flex-end;">
+        <button class="btn-agregar-producto" id="btn-agregar-producto" onclick="agregarProductoAlCarrito()" style="width:100%; justify-content:center;">+ Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LISTA DE PRODUCTOS AGREGADOS -->
+  <div class="field">
+    <label>Productos a entregar (<span id="carrito-count">0</span>)</label>
+    <div id="carrito-container"></div>
+  </div>
+
+  <!-- RECEPTORES -->
+  <div class="field">
+    <label class="required">Persona que recibe</label>
+    <div class="row-2">
+      <div class="field" style="margin-bottom:0;">
+        <label>Nombre completo</label>
+        <input type="text" id="receptor-nombre" placeholder="Ej: Juan Pérez">
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label>Correo electrónico</label>
+        <input type="email" id="receptor-email" placeholder="Ej: juan@lascondes.cl">
+      </div>
+    </div>
+    <button class="btn-agregar-receptor" id="btn-agregar-receptor" onclick="agregarReceptor()">+ Agregar receptor</button>
+    <div id="receptor-error" style="color:var(--rojo); font-size:11px; margin-top:4px; display:none;"></div>
+  </div>
+
+  <div class="field">
+    <label>Receptores agregados (<span id="receptor-count">0</span>/10)</label>
+    <div id="receptores-container"></div>
+  </div>
+
+  <div class="field">
+    <label>Observación (opcional)</label>
+    <textarea id="salida-obs" rows="2" placeholder="Motivo de la salida, proyecto, etc."></textarea>
+  </div>
+
+  <button class="btn-primario" id="btn-registrar" onclick="registrarSalida()">✅ Registrar Salida</button>
+  <button class="btn-secundario" onclick="mostrarComprobanteUltima()" style="margin-top:6px;">📋 Ver último comprobante</button>
+
+  <!-- MENSAJE DE PRODUCTOS DESPACHADOS -->
+  <div id="despacho-mensaje" class="despacho-mensaje">
+    <div class="titulo">✅ Productos Despachados</div>
+    <div class="detalle" id="despacho-detalle"></div>
+    <ul class="productos-list" id="despacho-productos"></ul>
+    <div class="total" id="despacho-total"></div>
+    <button class="btn-nueva-salida" onclick="nuevaSalida()">
+      ➕ Nueva Salida
+    </button>
+  </div>
+</div>
+
+<footer>Los datos se guardan automáticamente en el navegador · Municipalidad de Las Condes · GRRD</footer>
+
+<!-- MODAL COMPROBANTE -->
+<div class="modal-overlay" id="modal-comprobante">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>🧾 Comprobante de Salida</h2>
+      <button class="btn-cerrar-modal" onclick="cerrarModalComprobante()">✕</button>
+    </div>
+    <div id="ticket-content" class="ticket"></div>
+    <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+      <button class="btn-primario" style="flex:1;" onclick="imprimirComprobante()">🖨️ Imprimir</button>
+      <button class="btn-primario" style="flex:1; background:var(--verde);" onclick="descargarPDFComprobante()">📄 PDF</button>
+      <button class="btn-secundario" style="flex:1;" onclick="cerrarModalComprobante()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ============================================================
+// DATOS INICIALES EMBEBIDOS
+// ============================================================
+const DATOS_INICIALES = {
+    grupos: {
+        'Vestuario de Emergencia': {
+            icono: '🧥',
+            productos: [
+                { nombre: 'Botas Largas', tallas: ['39','40','41','42','43','44','45'], stock: { '39':6, '40':12, '41':17, '42':22, '43':22, '44':12, '45':5 } },
+                { nombre: 'Botas Cortas', tallas: ['39','40','41','42','43','44','45'], stock: { '39':0, '40':5, '41':10, '42':10, '43':10, '44':10, '45':3 } },
+                { nombre: 'Traje de Agua Amarillo', tallas: ['S','M','L','XL','XXL'], stock: { 'S':0, 'M':10, 'L':20, 'XL':20, 'XXL':0 } },
+                { nombre: 'Overol Desechable', tallas: ['S','M','L','XL','XXL'], stock: { 'S':0, 'M':33, 'L':33, 'XL':0, 'XXL':33 } },
+                { nombre: 'Traje de Agua Rojo', tallas: ['S','M','L','XL','XXL'], stock: { 'S':0, 'M':0, 'L':7, 'XL':35, 'XXL':0 } },
+                { nombre: 'Chaleco Geólogo Amarillo', tallas: ['S','M','L','XL','XXL'], stock: { 'S':0, 'M':5, 'L':10, 'XL':15, 'XXL':0 } },
+                { nombre: 'Chaleco Geólogo Naranjo', tallas: ['S','M','L','XL','XXL'], stock: { 'S':0, 'M':3, 'L':0, 'XL':7, 'XXL':0 } },
+                { nombre: 'Antiparras', tallas: null, stock: 100 },
+                { nombre: 'Guantes cabritilla', tallas: null, stock: 110 },
+                { nombre: 'Capa para Agua', tallas: null, stock: 100 },
+                { nombre: 'Gorro protección solar Legionario', tallas: null, stock: 20 },
+                { nombre: 'Lente seguridad con filtro', tallas: null, stock: 20 },
+                { nombre: 'Tapon auditivo con cordón', tallas: null, stock: 200 }
+            ]
+        },
+        'Equipo de Herramientas': {
+            icono: '🔧',
+            productos: [
+                { nombre: 'Rollos de plastico', tallas: null, stock: 5 },
+                { nombre: 'Generadores Hunday HYD2750I', tallas: null, stock: 10 },
+                { nombre: 'Motosierras nuevas', tallas: null, stock: 2 },
+                { nombre: 'Motobombas Hyundai 10HP 3"', tallas: null, stock: 6 },
+                { nombre: 'Motobomba Loncin 10HP 3"', tallas: null, stock: 2 },
+                { nombre: 'Esmeril Angular 9"', tallas: null, stock: 2 },
+                { nombre: 'Chuzo 1/1 8X 1', tallas: null, stock: 4 },
+                { nombre: 'Horqueta Truper', tallas: null, stock: 4 },
+                { nombre: 'Disco de Corte Makita', tallas: null, stock: 10 },
+                { nombre: 'Alargador simple naranjo', tallas: null, stock: 5 },
+                { nombre: 'Careta facial', tallas: null, stock: 2 },
+                { nombre: 'Manguera 2" Pulgadas', tallas: null, stock: 12 },
+                { nombre: 'Linternas 836', tallas: null, stock: 9 },
+                { nombre: 'Linternas Negras con cargador', tallas: null, stock: 7 },
+                { nombre: 'Linternas XY-8070', tallas: null, stock: 4 },
+                { nombre: 'Abrazaderas 59-82mm', tallas: null, stock: 11 },
+                { nombre: 'Adaptador Schuko', tallas: null, stock: 2 },
+                { nombre: 'Alcachofas', tallas: null, stock: 6 },
+                { nombre: 'Eslingas alto tonelaje', tallas: null, stock: 4 },
+                { nombre: 'Manguera rígida succión (rollos)', tallas: null, stock: 4 },
+                { nombre: 'Urnas plásticas', tallas: null, stock: 4 },
+                { nombre: 'Botiquín Primeros auxilios', tallas: null, stock: 2 },
+                { nombre: 'Mangueras de 3"', tallas: null, stock: 12 },
+                { nombre: 'Cinta para embalaje', tallas: null, stock: 10 },
+                { nombre: 'Escala Corredera', tallas: null, stock: 8 },
+                { nombre: 'Turbo calefactor', tallas: null, stock: 1 },
+                { nombre: 'Pala punta de huevo', tallas: null, stock: 26 },
+                { nombre: 'Pala Jardinera', tallas: null, stock: 55 },
+                { nombre: 'Rastrillo con mango', tallas: null, stock: 12 },
+                { nombre: 'Linterna LED', tallas: null, stock: 100 },
+                { nombre: 'Arnés de seguridad', tallas: null, stock: 8 },
+                { nombre: 'Cabo de vida con Amortiguador', tallas: null, stock: 8 }
+            ]
+        },
+        'Kit de Herramientas': {
+            icono: '🧰',
+            productos: [
+                { nombre: 'Guantes de Cabritilla', tallas: null, stock: 250 },
+                { nombre: 'Pala punta huevo', tallas: null, stock: 250 },
+                { nombre: 'Alicate universal', tallas: null, stock: 250 },
+                { nombre: 'Huincha de medir metalica', tallas: null, stock: 250 },
+                { nombre: 'Martillo Carpintero', tallas: null, stock: 250 },
+                { nombre: 'Set de destornilladores', tallas: null, stock: 250 },
+                { nombre: 'Juego de dados', tallas: null, stock: 250 },
+                { nombre: 'Caja de herramientas', tallas: null, stock: 250 },
+                { nombre: 'Cuerda de Polipropileno', tallas: null, stock: 250 },
+                { nombre: 'Amarras plásticas', tallas: null, stock: 250 },
+                { nombre: 'Rastrillo con mango', tallas: null, stock: 250 }
+            ]
+        }
+    }
+};
+
+// ============================================================
+// CLAVES PARA LOCALSTORAGE
+// ============================================================
+const STORAGE_KEY = 'inventario_grd_datos_v2';
+const SALIDAS_KEY = 'salidas_registradas_v7';
+
+// ============================================================
+// ESTADO DE LA APLICACIÓN
+// ============================================================
+let items = [];
+let grupos = {};
+let salidas = [];
+let productoSeleccionadoId = null;
+let tallaSeleccionada = null;
+let ultimoComprobante = null;
+let familiaSeleccionada = '';
+let receptoresAgregados = [];
+let carrito = [];
+let nombreUsuario = 'Personal GRRD';
+let salidaRegistrada = false;
+
+// ============================================================
+// FUNCIONES BASE
+// ============================================================
+function generarId() { return Date.now().toString(36) + Math.random().toString(36).substring(2, 7); }
+
+function fechaHoraActual() {
+  const now = new Date();
+  const dd = now.getDate().toString().padStart(2, '0');
+  const mm = (now.getMonth() + 1).toString().padStart(2, '0');
+  const yyyy = now.getFullYear();
+  const hh = now.getHours().toString().padStart(2, '0');
+  const min = now.getMinutes().toString().padStart(2, '0');
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+}
+
+function esHoy(fechaStr) {
+  const hoy = new Date();
+  const ddHoy = hoy.getDate().toString().padStart(2, '0');
+  const mmHoy = (hoy.getMonth() + 1).toString().padStart(2, '0');
+  const yyyyHoy = hoy.getFullYear();
+  return fechaStr.startsWith(`${ddHoy}/${mmHoy}/${yyyyHoy}`);
+}
+
+function mostrarToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timeout);
+  t._timeout = setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+// ============================================================
+// GENERAR ITEMS DESDE DATOS
+// ============================================================
+function generarItemsDesdeDatos(datos) {
+    const nuevos = [];
+    let idCounter = 0;
+    
+    Object.keys(datos.grupos).forEach(grupoKey => {
+        const grupo = datos.grupos[grupoKey];
+        grupo.productos.forEach(prod => {
+            const tieneTallas = prod.tallas && prod.tallas.length > 0;
+            if (tieneTallas) {
+                prod.tallas.forEach(talla => {
+                    const stock = prod.stock[talla] || 0;
+                    nuevos.push({
+                        id: 'i' + (++idCounter).toString().padStart(4, '0'),
+                        nombre: prod.nombre,
+                        familia: grupoKey,
+                        tieneTalla: true,
+                        talla: talla,
+                        stock: stock,
+                        marca: ''
+                    });
+                });
+            } else {
+                const stock = prod.stock || 0;
+                nuevos.push({
+                    id: 'i' + (++idCounter).toString().padStart(4, '0'),
+                    nombre: prod.nombre,
+                    familia: grupoKey,
+                    tieneTalla: false,
+                    talla: null,
+                    stock: stock,
+                    marca: ''
+                });
+            }
+        });
+    });
+    
+    return nuevos;
+}
+
+// ============================================================
+// GUARDAR Y CARGAR DATOS
+// ============================================================
+function guardarDatos() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            items: items,
+            grupos: grupos,
+            timestamp: Date.now()
+        }));
+        document.getElementById('excel-status').textContent = '📊 Datos guardados';
+        document.getElementById('excel-status').className = 'badge-excel guardado';
+        return true;
+    } catch (e) {
+        console.error('Error al guardar:', e);
+        return false;
+    }
+}
+
+function cargarDatos() {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+            const data = JSON.parse(stored);
+            if (data && data.items && data.grupos) {
+                items = data.items;
+                grupos = data.grupos;
+                document.getElementById('excel-status').textContent = `📊 ${items.length} artículos (guardados)`;
+                document.getElementById('excel-status').className = 'badge-excel guardado';
+                return true;
+            }
+        }
+    } catch (e) {
+        console.error('Error al cargar:', e);
+    }
+    return false;
+}
+
+function cargarDatosIniciales() {
+    grupos = JSON.parse(JSON.stringify(DATOS_INICIALES.grupos));
+    items = generarItemsDesdeDatos(DATOS_INICIALES);
+    document.getElementById('excel-status').textContent = `📊 ${items.length} artículos (iniciales)`;
+    document.getElementById('excel-status').className = 'badge-excel inicial';
+}
+
+function restaurarDatosIniciales() {
+    if (confirm('⚠️ ¿Restaurar los datos a los valores iniciales? Se perderán todos los cambios.')) {
+        localStorage.removeItem(STORAGE_KEY);
+        cargarDatosIniciales();
+        salidas = [];
+        carrito = [];
+        localStorage.setItem(SALIDAS_KEY, JSON.stringify(salidas));
+        renderTabs();
+        poblarDropdownProductos();
+        actualizarDashboard();
+        limpiarSeleccionProducto();
+        renderCarrito();
+        ocultarMensajeDespacho();
+        habilitarFormulario(true);
+        mostrarToast('✅ Datos restaurados a valores iniciales');
+        document.getElementById('excel-status').textContent = '📊 Datos restaurados';
+        document.getElementById('excel-status').className = 'badge-excel restaurado';
+    }
+}
+
+// ============================================================
+// MENSAJE DE PRODUCTOS DESPACHADOS
+// ============================================================
+function mostrarMensajeDespacho(productos, receptores) {
+    const container = document.getElementById('despacho-mensaje');
+    const detalle = document.getElementById('despacho-detalle');
+    const lista = document.getElementById('despacho-productos');
+    const total = document.getElementById('despacho-total');
+
+    detalle.textContent = `📅 ${fechaHoraActual()} · Recibe: ${receptores.map(r => r.nombre).join(', ')}`;
+
+    lista.innerHTML = productos.map(p => 
+        `<li><span>${p.nombre}${p.talla ? ' (Talla ' + p.talla + ')' : ''}</span><span class="cant">${p.cantidad} ud.</span></li>`
+    ).join('');
+
+    const totalUnidades = productos.reduce((sum, p) => sum + p.cantidad, 0);
+    total.textContent = `📦 Total: ${productos.length} producto(s) · ${totalUnidades} unidad(es) despachadas`;
+
+    container.style.display = 'block';
+    salidaRegistrada = true;
+    habilitarFormulario(false);
+    
+    setTimeout(() => {
+        container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 200);
+}
+
+function ocultarMensajeDespacho() {
+    document.getElementById('despacho-mensaje').style.display = 'none';
+    salidaRegistrada = false;
+}
+
+function habilitarFormulario(habilitado) {
+    const inputs = document.querySelectorAll('#formulario-salida input, #formulario-salida select, #formulario-salida textarea, #formulario-salida .btn-agregar-producto, #btn-registrar');
+    inputs.forEach(el => {
+        if (el.id === 'btn-registrar') {
+            el.disabled = !habilitado;
+        } else {
+            el.disabled = !habilitado;
+        }
+    });
+    document.querySelectorAll('.tab-familia').forEach(tab => {
+        tab.style.pointerEvents = habilitado ? 'auto' : 'none';
+        tab.style.opacity = habilitado ? '1' : '0.5';
+    });
+}
+
+function nuevaSalida() {
+    carrito = [];
+    renderCarrito();
+    receptoresAgregados = [];
+    renderReceptores();
+    document.getElementById('salida-obs').value = '';
+    limpiarSeleccionProducto();
+    ocultarMensajeDespacho();
+    habilitarFormulario(true);
+    poblarDropdownProductos();
+    mostrarToast('🔄 Formulario listo para una nueva salida');
+}
+
+// ============================================================
+// RENDER TABS
+// ============================================================
+function renderTabs() {
+  const container = document.getElementById('tabs-familias');
+  const familiasKeys = Object.keys(grupos);
+
+  if (familiasKeys.length === 0) {
+    container.innerHTML = '<div style="color:var(--texto-gris); font-size:12px; padding:8px;">No hay grupos disponibles</div>';
+    return;
+  }
+
+  if (!familiaSeleccionada || !familiasKeys.includes(familiaSeleccionada)) {
+    familiaSeleccionada = familiasKeys[0];
+  }
+
+  container.innerHTML = familiasKeys.map(familia => `
+    <div class="tab-familia ${familia === familiaSeleccionada ? 'active' : ''}" 
+         data-familia="${familia}" 
+         onclick="seleccionarFamilia('${familia}')">
+      ${grupos[familia].icono} ${familia}
+    </div>
+  `).join('');
+}
+
+function seleccionarFamilia(familia) {
+  if (salidaRegistrada) {
+    mostrarToast('⚠️ Finaliza la salida actual o haz clic en "Nueva Salida"');
+    return;
+  }
+  familiaSeleccionada = familia;
+  renderTabs();
+  poblarDropdownProductos();
+  limpiarSeleccionProducto();
+  ocultarMensajeDespacho();
+}
+
+// ============================================================
+// DROPDOWN PRODUCTOS - SOLO NOMBRE
+// ============================================================
+function poblarDropdownProductos() {
+  const list = document.getElementById('prod-list');
+  const input = document.getElementById('prod-trigger');
+  list.innerHTML = '';
+
+  if (!items || items.length === 0) {
+    list.innerHTML = '<div class="dropdown-item">📂 No hay productos</div>';
+    return;
+  }
+
+  const productosFiltrados = items.filter(i => i.familia === familiaSeleccionada);
+
+  if (productosFiltrados.length === 0) {
+    list.innerHTML = '<div class="dropdown-item">No hay productos en esta familia</div>';
+    return;
+  }
+
+  const nombresUnicos = [...new Set(productosFiltrados.map(i => i.nombre))].sort();
+
+  nombresUnicos.forEach(nombre => {
+    const grupo = productosFiltrados.filter(i => i.nombre === nombre);
+    
+    const div = document.createElement('div');
+    div.className = 'dropdown-item';
+    div.innerHTML = nombre;
+    div.onclick = function() {
+      if (salidaRegistrada) {
+        mostrarToast('⚠️ Finaliza la salida actual o haz clic en "Nueva Salida"');
+        return;
+      }
+      input.value = nombre;
+      list.style.display = 'none';
+      const primerItem = grupo[0];
+      productoSeleccionadoId = primerItem.id;
+      mostrarProductoSeleccionado(nombre);
+    };
+    list.appendChild(div);
+  });
+
+  input.onclick = function() {
+    if (salidaRegistrada) {
+      mostrarToast('⚠️ Finaliza la salida actual o haz clic en "Nueva Salida"');
+      return;
+    }
+    if (list.style.display === 'block') list.style.display = 'none';
+    else {
+      list.style.display = 'block';
+      poblarDropdownProductos();
+    }
+  };
+}
+
+// ============================================================
+// SELECCIÓN DE PRODUCTO - MUESTRA STOCK DISPONIBLE
+// ============================================================
+function mostrarProductoSeleccionado(nombre) {
+  const container = document.getElementById('producto-seleccionado-container');
+  const selectorContainer = document.getElementById('selector-tallas-container');
+  const selector = document.getElementById('selector-tallas');
+
+  container.style.display = 'block';
+  document.getElementById('prod-nombre-seleccionado').textContent = nombre;
+
+  const itemsProducto = items.filter(i => i.nombre === nombre && i.familia === familiaSeleccionada);
+  const tieneTallas = itemsProducto.some(i => i.tieneTalla && i.talla);
+
+  if (tieneTallas && itemsProducto.length > 0) {
+    selectorContainer.style.display = 'block';
+    selector.innerHTML = '';
+
+    const tallasOrdenadas = itemsProducto
+      .filter(i => i.talla)
+      .sort((a, b) => {
+        const aNum = parseFloat(a.talla), bNum = parseFloat(b.talla);
+        if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+        return a.talla.localeCompare(b.talla);
+      });
+
+    tallasOrdenadas.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'talla-item';
+      div.dataset.talla = item.talla;
+      div.dataset.id = item.id;
+      if (item.stock > 0) {
+        div.classList.add('con-stock');
+        if (item.stock <= 3) div.classList.add('stock-bajo');
+        div.innerHTML = `<span class="talla-nombre">${item.talla}</span><span class="talla-stock">${item.stock} disp.</span>`;
+        div.onclick = () => seleccionarTallaProducto(item);
+      } else {
+        div.classList.add('sin-stock');
+        div.innerHTML = `<span class="talla-nombre">${item.talla}</span><span class="talla-stock">agotado</span>`;
+      }
+      selector.appendChild(div);
+    });
+
+    tallaSeleccionada = null;
+    document.getElementById('talla-seleccionada-info').textContent = '👆 Selecciona una talla disponible';
+    document.getElementById('salida-cantidad').value = '';
+    document.getElementById('salida-cantidad').max = '';
+    document.getElementById('prod-stock-disponible').textContent = 'Selecciona una talla para ver el stock';
+  } else {
+    selectorContainer.style.display = 'none';
+    const itemUnico = itemsProducto[0];
+    if (itemUnico) {
+      productoSeleccionadoId = itemUnico.id;
+      document.getElementById('salida-cantidad').max = itemUnico.stock;
+      document.getElementById('prod-stock-disponible').textContent = `Stock disponible: ${itemUnico.stock} unidades`;
+    }
+  }
+}
+
+function seleccionarTallaProducto(item) {
+  tallaSeleccionada = item.talla;
+  productoSeleccionadoId = item.id;
+  document.querySelectorAll('.talla-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.talla === item.talla);
+  });
+  document.getElementById('talla-seleccionada-info').textContent = `✅ Talla ${item.talla} seleccionada · Stock: ${item.stock} unidades`;
+  document.getElementById('salida-cantidad').max = item.stock;
+  document.getElementById('salida-cantidad').value = '';
+  document.getElementById('prod-stock-disponible').textContent = `Stock disponible: ${item.stock} unidades (talla ${item.talla})`;
+}
+
+function limpiarSeleccionProducto() {
+  const container = document.getElementById('producto-seleccionado-container');
+  document.getElementById('prod-trigger').value = '';
+  productoSeleccionadoId = null;
+  tallaSeleccionada = null;
+  document.getElementById('salida-cantidad').value = '';
+  document.getElementById('salida-cantidad').max = '';
+  // OCULTAR COMPLETAMENTE EL CONTENEDOR DE DETALLES
+  container.style.display = 'none';
+  document.getElementById('selector-tallas-container').style.display = 'none';
+  document.getElementById('selector-tallas').innerHTML = '';
+  document.getElementById('talla-seleccionada-info').textContent = '';
+  document.getElementById('prod-nombre-seleccionado').textContent = 'Producto';
+  document.getElementById('prod-stock-disponible').textContent = 'Stock disponible: 0 unidades';
+  
+  // Cerrar el dropdown si está abierto
+  document.getElementById('prod-list').style.display = 'none';
+}
+
+// ============================================================
+// CARRITO - MÚLTIPLES PRODUCTOS
+// ============================================================
+function agregarProductoAlCarrito() {
+  if (salidaRegistrada) {
+    mostrarToast('⚠️ Finaliza la salida actual o haz clic en "Nueva Salida"');
+    return;
+  }
+
+  const cantidad = parseInt(document.getElementById('salida-cantidad').value);
+  
+  if (!productoSeleccionadoId) {
+    mostrarToast('❌ Selecciona un producto primero');
+    return;
+  }
+
+  if (isNaN(cantidad) || cantidad <= 0) {
+    mostrarToast('❌ Ingresa una cantidad válida');
+    return;
+  }
+
+  let itemSeleccionado = items.find(i => i.id === productoSeleccionadoId);
+  if (!itemSeleccionado) {
+    mostrarToast('❌ Producto no encontrado');
+    return;
+  }
+
+  if (cantidad > itemSeleccionado.stock) {
+    mostrarToast(`❌ Stock insuficiente. Disponible: ${itemSeleccionado.stock}`);
+    return;
+  }
+
+  const existe = carrito.find(p => 
+    p.productoId === itemSeleccionado.id && 
+    p.nombre === itemSeleccionado.nombre && 
+    p.talla === itemSeleccionado.talla
+  );
+
+  if (existe) {
+    const nuevaCantidad = existe.cantidad + cantidad;
+    if (nuevaCantidad > itemSeleccionado.stock + existe.cantidad) {
+      mostrarToast(`❌ Stock insuficiente. Disponible: ${itemSeleccionado.stock}`);
+      return;
+    }
+    existe.cantidad = nuevaCantidad;
+  } else {
+    carrito.push({
+      productoId: itemSeleccionado.id,
+      nombre: itemSeleccionado.nombre,
+      talla: itemSeleccionado.talla,
+      cantidad: cantidad,
+      stockDisponible: itemSeleccionado.stock
+    });
+  }
+
+  renderCarrito();
+  
+  // --- OCULTAR EL CUADRO DE DETALLES DEL PRODUCTO ---
+  limpiarSeleccionProducto();
+  
+  ocultarMensajeDespacho();
+  mostrarToast(`✅ ${cantidad} unidad(es) de ${itemSeleccionado.nombre}${itemSeleccionado.talla ? ' (talla ' + itemSeleccionado.talla + ')' : ''} agregadas`);
+}
+
+function eliminarProductoDelCarrito(index) {
+  carrito.splice(index, 1);
+  renderCarrito();
+  ocultarMensajeDespacho();
+}
+
+function renderCarrito() {
+  const container = document.getElementById('carrito-container');
+  const count = document.getElementById('carrito-count');
+  
+  count.textContent = carrito.length;
+
+  if (carrito.length === 0) {
+    container.innerHTML = '<div class="empty-state">No hay productos agregados</div>';
+    return;
+  }
+
+  container.innerHTML = carrito.map((p, index) => `
+    <div class="producto-agregado">
+      <div class="info">
+        <div class="nombre">${p.nombre}</div>
+        <div class="detalle">${p.talla ? 'Talla ' + p.talla + ' · ' : ''}Stock disponible: ${p.stockDisponible}</div>
+      </div>
+      <div class="cantidad">${p.cantidad}</div>
+      <button class="btn-eliminar-prod" onclick="eliminarProductoDelCarrito(${index})">✕</button>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// RECEPTORES
+// ============================================================
+function agregarReceptor() {
+  if (salidaRegistrada) {
+    mostrarToast('⚠️ Finaliza la salida actual o haz clic en "Nueva Salida"');
+    return;
+  }
+
+  const nombre = document.getElementById('receptor-nombre').value.trim();
+  const email = document.getElementById('receptor-email').value.trim();
+  const error = document.getElementById('receptor-error');
+
+  if (!nombre) { error.textContent = '⚠️ Ingresa el nombre completo'; error.style.display = 'block'; return; }
+  if (!email) { error.textContent = '⚠️ Ingresa el correo electrónico'; error.style.display = 'block'; return; }
+  if (!email.includes('@')) { error.textContent = '⚠️ Correo electrónico no válido'; error.style.display = 'block'; return; }
+  if (receptoresAgregados.length >= 10) { error.textContent = '⚠️ Máximo 10 receptores'; error.style.display = 'block'; return; }
+  if (receptoresAgregados.some(r => r.email === email)) { error.textContent = '⚠️ Este correo ya está agregado'; error.style.display = 'block'; return; }
+
+  error.style.display = 'none';
+  receptoresAgregados.push({ nombre, email });
+  renderReceptores();
+  document.getElementById('receptor-nombre').value = '';
+  document.getElementById('receptor-email').value = '';
+  document.getElementById('receptor-nombre').focus();
+}
+
+function eliminarReceptor(email) {
+  receptoresAgregados = receptoresAgregados.filter(r => r.email !== email);
+  renderReceptores();
+}
+
+function renderReceptores() {
+  const container = document.getElementById('receptores-container');
+  const count = document.getElementById('receptor-count');
+  const btn = document.getElementById('btn-agregar-receptor');
+
+  count.textContent = receptoresAgregados.length;
+
+  if (receptoresAgregados.length === 0) {
+    container.innerHTML = '<div class="empty-state">No hay receptores agregados</div>';
+    btn.disabled = false;
+    btn.textContent = '+ Agregar receptor';
+    return;
+  }
+
+  container.innerHTML = receptoresAgregados.map(p => `
+    <div class="receptor-card">
+      <button class="btn-eliminar" onclick="eliminarReceptor('${p.email}')">✕</button>
+      <div class="receptor-nombre">${p.nombre}</div>
+      <div class="receptor-email">${p.email}</div>
+    </div>
+  `).join('');
+
+  if (receptoresAgregados.length >= 10) {
+    btn.disabled = true;
+    btn.textContent = '🔒 Máximo 10 receptores';
+  } else {
+    btn.disabled = false;
+    btn.textContent = '+ Agregar receptor';
+  }
+}
+
+// ============================================================
+// REGISTRAR SALIDA - MÚLTIPLES PRODUCTOS
+// ============================================================
+function registrarSalida() {
+  if (salidaRegistrada) {
+    mostrarToast('⚠️ Ya se registró una salida. Haz clic en "Nueva Salida" para continuar');
+    return;
+  }
+
+  if (carrito.length === 0) {
+    mostrarToast('❌ Agrega al menos un producto');
+    return;
+  }
+
+  if (receptoresAgregados.length === 0) {
+    mostrarToast('❌ Agrega al menos una persona que recibe');
+    return;
+  }
+
+  for (let p of carrito) {
+    const itemActual = items.find(i => i.id === p.productoId);
+    if (!itemActual) {
+      mostrarToast(`❌ Producto "${p.nombre}" no encontrado`);
+      return;
+    }
+    if (p.cantidad > itemActual.stock) {
+      mostrarToast(`❌ Stock insuficiente para "${p.nombre}". Disponible: ${itemActual.stock}`);
+      return;
+    }
+  }
+
+  const productosEntregados = carrito.map(p => {
+    const itemActual = items.find(i => i.id === p.productoId);
+    itemActual.stock -= p.cantidad;
+    return {
+      productoId: p.productoId,
+      nombre: p.nombre,
+      talla: p.talla,
+      cantidad: p.cantidad
+    };
+  });
+
+  const obs = document.getElementById('salida-obs').value.trim();
+
+  const salida = {
+    id: generarId(),
+    productos: productosEntregados,
+    receptores: receptoresAgregados.map(r => ({ nombre: r.nombre, email: r.email })),
+    observacion: obs,
+    responsable: nombreUsuario || 'Personal GRRD',
+    fecha: fechaHoraActual(),
+    timestamp: Date.now()
+  };
+
+  salidas.unshift(salida);
+  ultimoComprobante = salida;
+  
+  localStorage.setItem(SALIDAS_KEY, JSON.stringify(salidas));
+  guardarDatos();
+
+  mostrarMensajeDespacho(productosEntregados, receptoresAgregados);
+
+  const totalProductos = productosEntregados.length;
+  const totalUnidades = productosEntregados.reduce((a, p) => a + p.cantidad, 0);
+  
+  mostrarToast(`✅ Salida registrada: ${totalProductos} producto(s) · ${totalUnidades} unidad(es)`);
+  actualizarDashboard();
+  poblarDropdownProductos();
+  mostrarComprobante(ultimoComprobante);
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function actualizarDashboard() {
+  const hoy = salidas.filter(s => esHoy(s.fecha));
+  document.getElementById('res-salidas-hoy').textContent = hoy.length;
+  
+  let totalUnidades = 0;
+  let totalProductos = new Set();
+  hoy.forEach(s => {
+    s.productos.forEach(p => {
+      totalUnidades += p.cantidad;
+      totalProductos.add(p.productoId);
+    });
+  });
+  
+  document.getElementById('res-unidades-hoy').textContent = totalUnidades;
+  document.getElementById('res-productos-unicos').textContent = totalProductos.size;
+}
+
+// ============================================================
+// COMPROBANTE
+// ============================================================
+function mostrarComprobante(salida) {
+  const modal = document.getElementById('modal-comprobante');
+  const content = document.getElementById('ticket-content');
+  const numTicket = String(salidas.length).padStart(4, '0');
+  const receptoresText = salida.receptores ? salida.receptores.map(r => r.nombre + ' (' + r.email + ')').join(', ') : 'No especificado';
+
+  let productosHTML = salida.productos.map(p => `
+    <div class="prod-item">
+      <span>${p.nombre}${p.talla ? ' (' + p.talla + ')' : ''}</span>
+      <span>${p.cantidad}</span>
+    </div>
+  `).join('');
+
+  content.innerHTML = `
+    <div class="ticket-header">
+      <h3>🏛️ MUNICIPALIDAD DE LAS CONDES</h3>
+      <div style="font-size:9px;">Depto. Gestión de Riesgos y Desastres</div>
+      <div style="font-weight:700; font-size:14px; margin-top:4px;">COMPROBANTE DE SALIDA N° ${numTicket}</div>
+    </div>
+    <div class="ticket-fila"><span class="label">Fecha</span><span class="valor">${salida.fecha}</span></div>
+    <div class="ticket-fila" style="flex-direction:column; align-items:stretch; padding:6px 0;">
+      <span class="label" style="margin-bottom:4px;">Productos entregados</span>
+      <div class="ticket-productos">${productosHTML}</div>
+    </div>
+    <div class="ticket-fila"><span class="label">Recibe</span><span class="valor">${receptoresText}</span></div>
+    ${salida.observacion ? `<div class="ticket-fila"><span class="label">Observación</span><span class="valor">${salida.observacion}</span></div>` : ''}
+    <div class="ticket-fila"><span class="label">Entregado por</span><span class="valor">${salida.responsable}</span></div>
+    <div class="ticket-firma">
+      <div class="firma-linea"><div>Entregado por</div><div class="linea"></div></div>
+      <div class="firma-linea"><div>Recibido por</div><div class="linea"></div></div>
+    </div>
+    <div class="ticket-footer">Este comprobante es de carácter informativo.<br>${salida.fecha}</div>
+  `;
+
+  modal.classList.add('visible');
+  ultimoComprobante = salida;
+}
+
+function mostrarComprobanteUltima() {
+  if (salidas.length === 0) { mostrarToast('❌ No hay salidas registradas'); return; }
+  mostrarComprobante(salidas[0]);
+}
+
+function cerrarModalComprobante() {
+  document.getElementById('modal-comprobante').classList.remove('visible');
+}
+
+function imprimirComprobante() {
+  const content = document.getElementById('ticket-content').innerHTML;
+  const ventana = window.open('', '_blank');
+  ventana.document.write(`
+    <html><head><title>Comprobante de Salida</title>
+    <style>
+      body { font-family: 'Courier New', monospace; padding: 20px; max-width: 350px; margin: 0 auto; }
+      .ticket { background: white; border: 2px dashed #1664c0; border-radius: 12px; padding: 16px; }
+      .ticket-header { text-align: center; border-bottom: 1px dashed #aaa; padding-bottom: 8px; margin-bottom: 8px; }
+      .ticket-header h3 { font-size: 14px; color: #1664c0; margin:0; }
+      .ticket-fila { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dotted #eee; }
+      .ticket-fila .label { color: #666; font-weight: 500; }
+      .ticket-fila .valor { font-weight: 700; }
+      .ticket-fila { flex-direction: column; align-items: stretch; }
+      .ticket-fila .label { margin-bottom: 4px; }
+      .ticket-productos .prod-item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 10px; border-bottom: 1px dotted #eee; }
+      .ticket-firma { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #aaa; }
+      .ticket-firma .firma-linea { text-align: center; flex: 1; }
+      .ticket-firma .firma-linea .linea { border-top: 1px solid #333; width: 80%; margin: 6px auto 2px; }
+      .ticket-footer { text-align: center; font-size: 8px; color: #666; margin-top: 8px; border-top: 1px dashed #aaa; padding-top: 8px; }
+    </style>
+    </head><body>
+    <div class="ticket">${content}</div>
+    <p style="text-align:center; font-size:10px; color:#999; margin-top:12px;">Municipalidad de Las Condes · GRRD</p>
+    <script>window.onload = function() { window.print(); }<\/script>
+    </body></html>
+  `);
+  ventana.document.close();
+
+  // Volver al inicio del sistema tras imprimir
+  cerrarModalComprobante();
+  nuevaSalida();
+}
+
+function descargarPDFComprobante() {
+  if (!ultimoComprobante) { mostrarToast('❌ No hay comprobante'); return; }
+  const { jsPDF } = window.jspdf;
+  const s = ultimoComprobante;
+  const num = String(salidas.indexOf(s) + 1).padStart(4, '0');
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 15;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('MUNICIPALIDAD DE LAS CONDES', pageW/2, 15, { align: 'center' });
+  doc.setFontSize(6);
+  doc.text('Depto. Gestión de Riesgos y Desastres', pageW/2, 20, { align: 'center' });
+  doc.setFontSize(8);
+  doc.text('COMPROBANTE DE SALIDA N° ' + num, pageW/2, 28, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  let y = 38;
+  const receptoresText = s.receptores ? s.receptores.map(r => r.nombre + ' (' + r.email + ')').join(', ') : 'No especificado';
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Productos entregados:', margin, y);
+  y += 5;
+  doc.setFont('helvetica', 'normal');
+  s.productos.forEach(p => {
+    doc.text(`  ${p.nombre}${p.talla ? ' (' + p.talla + ')' : ''}`, margin, y);
+    doc.text(`${p.cantidad}`, pageW - margin - 10, y, { align: 'right' });
+    y += 5;
+  });
+  y += 4;
+
+  const lines = [
+    ['Fecha', s.fecha],
+    ['Recibe', receptoresText],
+    ['Entregado por', s.responsable]
+  ];
+  if (s.observacion) lines.push(['Observación', s.observacion]);
+
+  lines.forEach(([label, value]) => {
+    doc.setFont('helvetica', 'bold');
+    doc.text(label + ':', margin, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(value.length > 40 ? value.substring(0, 39) + '…' : value, margin + 35, y);
+    y += 7;
+  });
+
+  y += 4;
+  doc.line(margin, y, pageW - margin, y);
+  y += 5;
+  doc.setFontSize(7);
+  doc.text('Entregado por', margin + 20, y);
+  doc.text('Recibido por', margin + 80, y);
+  y += 5;
+  doc.line(margin + 10, y, margin + 45, y);
+  doc.line(margin + 70, y, margin + 105, y);
+
+  y += 8;
+  doc.setFontSize(6);
+  doc.text('Este comprobante es de carácter informativo', pageW/2, y, { align: 'center' });
+
+  doc.save(`Comprobante_Salida_${s.id}.pdf`);
+  mostrarToast('✅ PDF descargado');
+
+  // Volver al inicio del sistema tras generar el PDF
+  cerrarModalComprobante();
+  nuevaSalida();
+}
+
+// ============================================================
+// EXPORTAR EXCEL ACTUALIZADO
+// ============================================================
+function descargarExcelActualizado() {
+  if (!items || items.length === 0) {
+    mostrarToast('❌ No hay datos para exportar');
+    return;
+  }
+
+  const datos = [];
+  const familiasKeys = Object.keys(grupos);
+
+  familiasKeys.forEach(familia => {
+    const icono = grupos[familia].icono || '📦';
+    datos.push({ 'Artículo': `${icono} ${familia}`, 'Marca': '', 'Talla': '', 'Stock': '' });
+
+    const productosFamilia = items.filter(i => i.familia === familia);
+    productosFamilia.forEach(item => {
+      datos.push({
+        'Artículo': item.nombre,
+        'Marca': '',
+        'Talla': item.talla || '',
+        'Stock': item.stock
+      });
+    });
+
+    datos.push({ 'Artículo': '', 'Marca': '', 'Talla': '', 'Stock': '' });
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(datos);
+  ws['!cols'] = [{ wch: 35 }, { wch: 25 }, { wch: 15 }, { wch: 15 }];
+  XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+
+  const blob = new Blob([wbout], { type: 'application/octet-stream' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'inventarioGRD_actualizado.xlsx';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  mostrarToast('✅ Excel exportado con los stocks actualizados');
+}
+
+// ============================================================
+// INICIALIZACIÓN
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+  const salidasGuardadas = localStorage.getItem(SALIDAS_KEY);
+  if (salidasGuardadas) {
+    try {
+      salidas = JSON.parse(salidasGuardadas);
+    } catch (e) {
+      salidas = [];
+    }
+  }
+
+  const datosCargados = cargarDatos();
+
+  if (!datosCargados) {
+    cargarDatosIniciales();
+    guardarDatos();
+  }
+
+  const familiasKeys = Object.keys(grupos);
+  if (familiasKeys.length > 0) {
+    familiaSeleccionada = familiasKeys[0];
+  }
+
+  renderReceptores();
+  renderTabs();
+  poblarDropdownProductos();
+  actualizarDashboard();
+  renderCarrito();
+
+  nombreUsuario = prompt('Ingresa tu nombre (para el comprobante):', 'Personal GRRD') || 'Personal GRRD';
+  document.getElementById('usuario-nombre').textContent = nombreUsuario;
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.custom-dropdown')) {
+      document.querySelectorAll('.dropdown-list').forEach(l => l.style.display = 'none');
+    }
+  });
+
+  ocultarMensajeDespacho();
+  habilitarFormulario(true);
+
+  if (datosCargados) {
+    mostrarToast(`📊 Datos cargados: ${items.length} artículos`);
+  } else {
+    mostrarToast(`📊 Datos iniciales: ${items.length} artículos`);
+  }
+});
+</script>
+</body>
+</html>

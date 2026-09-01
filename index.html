@@ -83,20 +83,6 @@
   .badge-excel.inicial { background: #e08e0b; }
   .badge-excel.restaurado { background: #8B0000; }
   .header-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .btn-header {
-    border: none;
-    border-radius: 30px;
-    padding: 4px 12px;
-    font-weight: 600;
-    font-size: 10px;
-    cursor: pointer;
-    transition: 0.2s;
-    color: white;
-    background: rgba(255,255,255,0.2);
-  }
-  .btn-header:hover { background: rgba(255,255,255,0.35); }
-  .btn-header.verde { background: #1A6E42; }
-  .btn-header.verde:hover { background: #145a35; }
 
   /* ===== NAV TABS (WIZARD) ===== */
   .nav-tabs {
@@ -827,13 +813,12 @@
     </select>
   </div>
 
-  <!-- Tabla -->
+  <!-- Tabla - SIN columna Familia -->
   <div class="tabla-container">
     <table>
       <thead>
         <tr>
           <th>Producto</th>
-          <th>Familia</th>
           <th>Talla</th>
           <th style="text-align:right;">Stock</th>
           <th style="text-align:center;">Estado</th>
@@ -1945,7 +1930,7 @@ function renderEntradasRecientes() {
 }
 
 // ============================================================
-// INVENTARIO
+// INVENTARIO - ACTUALIZADO (SIN COLUMNA FAMILIA, ORDEN ALFABÉTICO)
 // ============================================================
 function renderInventario() {
     const tbody = document.getElementById('inventario-tbody');
@@ -1953,6 +1938,7 @@ function renderInventario() {
     const filtroFamilia = document.getElementById('filtro-familia').value;
     const filtroStock = document.getElementById('filtro-stock').value;
     
+    // Actualizar opciones de familia en el filtro
     const familiasSelect = document.getElementById('filtro-familia');
     const familiasKeys = Object.keys(grupos);
     const currentValue = familiasSelect.value;
@@ -1962,9 +1948,13 @@ function renderInventario() {
     });
     familiasSelect.value = currentValue;
     
+    // Filtrar productos
     let itemsFiltrados = items.filter(i => {
+        // Filtro por nombre
         if (filtroNombre && !i.nombre.toLowerCase().includes(filtroNombre)) return false;
+        // Filtro por familia
         if (filtroFamilia && i.familia !== filtroFamilia) return false;
+        // Filtro por stock
         if (filtroStock === 'critico' && (i.stock > 3 || i.stock === 0)) return false;
         if (filtroStock === 'bajo' && (i.stock > 5 || i.stock === 0)) return false;
         if (filtroStock === 'normal' && i.stock <= 5) return false;
@@ -1972,16 +1962,13 @@ function renderInventario() {
         return true;
     });
     
+    // Ordenar alfabéticamente por nombre
     itemsFiltrados.sort((a, b) => {
-        if (a.stock === 0 && b.stock > 0) return 1;
-        if (b.stock === 0 && a.stock > 0) return -1;
-        if (a.stock <= 3 && b.stock > 3) return -1;
-        if (b.stock <= 3 && a.stock > 3) return 1;
         return a.nombre.localeCompare(b.nombre);
     });
     
     if (itemsFiltrados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--texto-gris);">No hay productos que coincidan con los filtros</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--texto-gris);">No hay productos que coincidan con los filtros</td></tr>';
         document.getElementById('inventario-total-items').textContent = '0 productos';
         return;
     }
@@ -2004,7 +1991,6 @@ function renderInventario() {
         
         return `<tr class="${stockClass}">
             <td><strong>${i.nombre}</strong></td>
-            <td>${i.familia}</td>
             <td>${i.talla || '—'}</td>
             <td style="text-align:right; font-weight:${i.stock <= 3 ? '800' : '400'}; color:${i.stock <= 3 ? 'var(--rojo)' : '#000000'};">${i.stock}</td>
             <td style="text-align:center;">${badge}</td>
@@ -2243,8 +2229,8 @@ function generarPDFInventario() {
     doc.text(`Total productos con stock: ${itemsConStock.length}  |  Stock crítico (≤3): ${itemsCriticos.length}`, margin, y);
     y += 6;
     
-    const cols = ['Producto', 'Familia', 'Talla', 'Stock'];
-    const colWidths = [65, 50, 25, 30];
+    const cols = ['Producto', 'Talla', 'Stock'];
+    const colWidths = [90, 30, 40];
     
     doc.setFillColor(22, 100, 192);
     doc.setTextColor(255, 255, 255);
@@ -2259,11 +2245,8 @@ function generarPDFInventario() {
     y += 6;
     doc.setTextColor(0, 0, 0);
     
-    const sortedItems = [...itemsConStock].sort((a, b) => {
-        if (a.stock <= 3 && b.stock > 3) return -1;
-        if (b.stock <= 3 && a.stock > 3) return 1;
-        return a.nombre.localeCompare(b.nombre);
-    });
+    // Ordenar alfabéticamente por nombre
+    const sortedItems = [...itemsConStock].sort((a, b) => a.nombre.localeCompare(b.nombre));
     
     sortedItems.forEach((item) => {
         if (y > pageH - 15) {
@@ -2295,10 +2278,8 @@ function generarPDFInventario() {
         x = margin;
         doc.text(item.nombre, x, y);
         x += colWidths[0];
-        doc.text(item.familia, x, y);
-        x += colWidths[1];
         doc.text(item.talla || '—', x, y);
-        x += colWidths[2];
+        x += colWidths[1];
         doc.text(String(item.stock), x, y, { align: 'right' });
         
         y += 5;
@@ -2333,6 +2314,7 @@ function exportarInventarioExcel() {
             'Stock': item.stock
         }));
         
+        // Ordenar alfabéticamente por nombre
         datos.sort((a, b) => a.Producto.localeCompare(b.Producto));
         
         const titulo = [{ 'Producto': `📦 ${familia}`, 'Talla': '', 'Stock': '' }];

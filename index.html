@@ -760,25 +760,45 @@
       <div style="font-size:11px; font-weight:600; color:var(--texto-gris); margin-top:6px;">📏 Selecciona una talla:</div>
       <div class="selector-tallas" id="selector-tallas-entrada"></div>
     </div>
-    <div class="row-3" style="margin-top:8px;">
+    <div class="row-2" style="margin-top:8px;">
       <div class="field" style="margin-bottom:0;">
         <label>Cantidad a ingresar</label>
         <input type="number" id="entrada-cantidad" min="1" placeholder="0">
       </div>
-      <div class="field" style="margin-bottom:0;">
-        <label>Proveedor</label>
-        <input type="text" id="entrada-proveedor" placeholder="Nombre del proveedor">
-      </div>
       <div class="field" style="margin-bottom:0; display:flex; align-items:flex-end;">
-        <button class="btn-verde" onclick="registrarEntrada()" style="width:100%; justify-content:center;">✅ Ingresar</button>
+        <button class="btn-verde" id="btn-agregar-producto-entrada" onclick="agregarProductoAlCarritoEntrada()" style="width:100%; justify-content:center;">+ Agregar</button>
       </div>
     </div>
   </div>
 
-  <div id="entrada-mensaje" style="display:none; background:var(--verde-claro); border-radius:12px; padding:16px; margin-top:12px; border-left:4px solid var(--verde);">
-    <div style="font-weight:700; color:#1e6b3b; font-size:15px;">✅ Productos Ingresados</div>
-    <div id="entrada-detalle" style="font-size:12px; color:#2d5a3d; margin-top:4px;"></div>
+  <!-- CARRITO DE ENTRADA (varios productos a la vez) -->
+  <div class="field">
+    <label>Productos a ingresar (<span id="carrito-entrada-count">0</span>)</label>
+    <div id="carrito-entrada-container"></div>
+  </div>
+
+  <div class="field">
+    <label>Proveedor</label>
+    <input type="text" id="entrada-proveedor" placeholder="Nombre del proveedor">
+  </div>
+
+  <div class="field">
+    <label>Observación (opcional)</label>
+    <textarea id="entrada-obs" rows="2" placeholder="Guía de despacho, N° de factura, etc."></textarea>
+  </div>
+
+  <div class="row-2" style="gap:8px;">
+    <button class="btn-primario" id="btn-registrar-entrada" onclick="registrarEntrada()">✅ Registrar Entrada</button>
+    <button class="btn-secundario" onclick="mostrarComprobanteEntradaUltima()">📋 Ver último</button>
+  </div>
+
+  <div id="entrada-mensaje" class="despacho-mensaje">
+    <div class="titulo">✅ Productos Ingresados</div>
+    <div class="detalle" id="entrada-detalle"></div>
+    <ul class="productos-list" id="entrada-productos-lista"></ul>
+    <div class="total" id="entrada-total"></div>
     <button class="btn-verde" onclick="nuevaEntrada()" style="margin-top:10px;">➕ Nueva Entrada</button>
+    <button class="btn-secundario" onclick="descargarPDFEntrada()" style="margin-top:6px;">📄 PDF Respaldo</button>
   </div>
 
   <!-- Historial de entradas recientes -->
@@ -796,6 +816,7 @@
   <div class="acciones-inventario">
     <button class="btn-pequeno azul" onclick="exportarInventarioExcel()">📊 Exportar Excel</button>
     <button class="btn-pequeno verde" onclick="generarPDFInventario()">📄 PDF Inventario</button>
+    <button class="btn-pequeno rojo" id="btn-restablecer-inventario" style="display:none;" onclick="restablecerInventario()">🚨 Reset Emergencia (30u / 0 hist.)</button>
   </div>
 
   <!-- Filtros -->
@@ -941,6 +962,7 @@ const DATOS_INICIALES = {
 const STORAGE_KEY = 'inventario_grd_datos_v3';
 const SALIDAS_KEY = 'salidas_registradas_v8';
 const ENTRADAS_KEY = 'entradas_registradas_v1';
+const RECEPCIONES_KEY = 'recepciones_registradas_v1';
 
 // ============================================================
 // ESTADO GLOBAL
@@ -949,16 +971,43 @@ let items = [];
 let grupos = {};
 let salidas = [];
 let entradas = [];
+let recepciones = [];
 let productoSeleccionadoId = null;
 let tallaSeleccionada = null;
 let ultimoComprobante = null;
+let ultimaRecepcion = null;
 let familiaSeleccionada = '';
 let familiaEntradaSeleccionada = '';
 let receptoresAgregados = [];
 let carrito = [];
+let carritoEntrada = [];
 let nombreUsuario = 'Personal GRRD';
 let salidaRegistrada = false;
 let entradaRegistrada = false;
+let logoImageData = null;
+
+// ============================================================
+// PRECARGA DEL LOGO MUNICIPAL (para usarlo dentro de los PDF)
+// ============================================================
+function precargarLogoPDF() {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = function () {
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            logoImageData = canvas.toDataURL('image/png');
+        } catch (e) {
+            console.warn('No se pudo preparar el logo para el PDF:', e);
+            logoImageData = null;
+        }
+    };
+    img.onerror = function () { logoImageData = null; };
+    img.src = 'https://i.ibb.co/Z6qxBJQZ/Logo-general-1.png';
+}
 
 // ============================================================
 // FUNCIONES BASE
@@ -1053,6 +1102,7 @@ function guardarDatos() {
         }));
         localStorage.setItem(SALIDAS_KEY, JSON.stringify(salidas));
         localStorage.setItem(ENTRADAS_KEY, JSON.stringify(entradas));
+        localStorage.setItem(RECEPCIONES_KEY, JSON.stringify(recepciones));
         document.getElementById('excel-status').textContent = '📊 Datos guardados';
         document.getElementById('excel-status').className = 'badge-excel guardado';
         return true;
@@ -1100,6 +1150,17 @@ function cargarEntradas() {
         }
     } catch (e) {
         entradas = [];
+    }
+}
+
+function cargarRecepciones() {
+    try {
+        const stored = localStorage.getItem(RECEPCIONES_KEY);
+        if (stored) {
+            recepciones = JSON.parse(stored);
+        }
+    } catch (e) {
+        recepciones = [];
     }
 }
 
@@ -1853,64 +1914,197 @@ function nuevaSalida() {
 }
 
 // ============================================================
-// REGISTRAR ENTRADA
+// CARRITO (ENTRADA) — permite agregar varios productos antes de registrar
 // ============================================================
-function registrarEntrada() {
+function agregarProductoAlCarritoEntrada() {
+    if (entradaRegistrada) {
+        mostrarToast('⚠️ Finaliza la entrada actual o haz clic en "Nueva Entrada"');
+        return;
+    }
+
     const cantidad = parseInt(document.getElementById('entrada-cantidad').value);
-    const proveedor = document.getElementById('entrada-proveedor').value.trim();
-    
+
     if (!productoSeleccionadoId) {
         mostrarToast('❌ Selecciona un producto primero');
         return;
     }
-    
+
     if (isNaN(cantidad) || cantidad <= 0) {
         mostrarToast('❌ Ingresa una cantidad válida');
         return;
     }
-    
+
     let itemSeleccionado = items.find(i => i.id === productoSeleccionadoId);
     if (!itemSeleccionado) {
         mostrarToast('❌ Producto no encontrado');
         return;
     }
-    
-    itemSeleccionado.stock += cantidad;
-    
-    const entrada = {
-        id: generarId(),
-        productoId: itemSeleccionado.id,
-        nombre: itemSeleccionado.nombre,
-        talla: itemSeleccionado.talla,
-        cantidad: cantidad,
+
+    const existe = carritoEntrada.find(p =>
+        p.productoId === itemSeleccionado.id &&
+        p.nombre === itemSeleccionado.nombre &&
+        p.talla === itemSeleccionado.talla
+    );
+
+    if (existe) {
+        existe.cantidad += cantidad;
+    } else {
+        carritoEntrada.push({
+            productoId: itemSeleccionado.id,
+            nombre: itemSeleccionado.nombre,
+            talla: itemSeleccionado.talla,
+            cantidad: cantidad,
+            stockActual: itemSeleccionado.stock
+        });
+    }
+
+    renderCarritoEntrada();
+    limpiarSeleccionEntrada();
+    mostrarToast(`✅ ${cantidad} unidad(es) de ${itemSeleccionado.nombre}${itemSeleccionado.talla ? ' (talla ' + itemSeleccionado.talla + ')' : ''} agregadas`);
+}
+
+function eliminarProductoDelCarritoEntrada(index) {
+    if (confirm('¿Eliminar este producto del carrito?')) {
+        carritoEntrada.splice(index, 1);
+        renderCarritoEntrada();
+    }
+}
+
+function renderCarritoEntrada() {
+    const container = document.getElementById('carrito-entrada-container');
+    const count = document.getElementById('carrito-entrada-count');
+
+    count.textContent = carritoEntrada.length;
+
+    if (carritoEntrada.length === 0) {
+        container.innerHTML = '<div class="empty-state">No hay productos agregados</div>';
+        return;
+    }
+
+    container.innerHTML = carritoEntrada.map((p, index) => `
+        <div class="producto-agregado">
+            <div class="info">
+                <div class="nombre">${p.nombre}</div>
+                <div class="detalle">${p.talla ? 'Talla ' + p.talla + ' · ' : ''}Stock actual: ${p.stockActual}</div>
+            </div>
+            <div class="cantidad" style="color:var(--verde);">+${p.cantidad}</div>
+            <button class="btn-eliminar-prod" onclick="eliminarProductoDelCarritoEntrada(${index})">✕</button>
+        </div>
+    `).join('');
+}
+
+function habilitarFormularioEntrada(habilitado) {
+    const inputs = document.querySelectorAll('#tab-entrada input, #tab-entrada select, #tab-entrada textarea, #tab-entrada .btn-verde, #btn-registrar-entrada');
+    inputs.forEach(el => { el.disabled = !habilitado; });
+    document.querySelectorAll('#tabs-familias-entrada .tab-familia').forEach(tab => {
+        tab.style.pointerEvents = habilitado ? 'auto' : 'none';
+        tab.style.opacity = habilitado ? '1' : '0.5';
+    });
+}
+
+// ============================================================
+// REGISTRAR ENTRADA (VARIOS PRODUCTOS A LA VEZ)
+// ============================================================
+function registrarEntrada() {
+    if (entradaRegistrada) {
+        mostrarToast('⚠️ Ya se registró una entrada. Haz clic en "Nueva Entrada" para continuar');
+        return;
+    }
+
+    if (carritoEntrada.length === 0) {
+        mostrarToast('❌ Agrega al menos un producto');
+        return;
+    }
+
+    const proveedor = document.getElementById('entrada-proveedor').value.trim();
+    const observacion = document.getElementById('entrada-obs').value.trim();
+    const fecha = fechaHoraActual();
+    const loteId = generarId();
+
+    const productosIngresados = carritoEntrada.map(p => {
+        const itemActual = items.find(i => i.id === p.productoId);
+        if (itemActual) itemActual.stock += p.cantidad;
+
+        entradas.unshift({
+            id: generarId(),
+            loteId: loteId,
+            productoId: p.productoId,
+            nombre: p.nombre,
+            talla: p.talla,
+            cantidad: p.cantidad,
+            proveedor: proveedor || 'No especificado',
+            responsable: nombreUsuario || 'Personal GRRD',
+            fecha: fecha,
+            timestamp: Date.now()
+        });
+
+        return { productoId: p.productoId, nombre: p.nombre, talla: p.talla, cantidad: p.cantidad };
+    });
+
+    const recepcion = {
+        id: loteId,
+        productos: productosIngresados,
         proveedor: proveedor || 'No especificado',
+        observacion: observacion,
         responsable: nombreUsuario || 'Personal GRRD',
-        fecha: fechaHoraActual(),
+        fecha: fecha,
         timestamp: Date.now()
     };
-    
-    entradas.unshift(entrada);
+
+    recepciones.unshift(recepcion);
+    ultimaRecepcion = recepcion;
+
     guardarDatos();
-    
-    document.getElementById('entrada-mensaje').style.display = 'block';
-    document.getElementById('entrada-detalle').textContent = 
-        `📅 ${fechaHoraActual()} · ${cantidad} uds. de ${itemSeleccionado.nombre}${itemSeleccionado.talla ? ' (talla ' + itemSeleccionado.talla + ')' : ''} · Proveedor: ${proveedor || 'No especificado'}`;
-    
-    mostrarToast(`✅ Entrada registrada: ${cantidad} uds. de ${itemSeleccionado.nombre}`);
+
+    mostrarMensajeEntrada(productosIngresados, proveedor);
+
+    const totalProductos = productosIngresados.length;
+    const totalUnidades = productosIngresados.reduce((a, p) => a + p.cantidad, 0);
+
+    mostrarToast(`✅ Entrada registrada: ${totalProductos} producto(s) · ${totalUnidades} unidad(es)`);
     renderInventario();
     actualizarDashboard();
     actualizarStockCritico();
-    limpiarSeleccionEntrada();
+    poblarDropdownEntrada();
     renderEntradasRecientes();
+}
+
+function mostrarMensajeEntrada(productos, proveedor) {
+    const container = document.getElementById('entrada-mensaje');
+    const detalle = document.getElementById('entrada-detalle');
+    const lista = document.getElementById('entrada-productos-lista');
+    const total = document.getElementById('entrada-total');
+
+    detalle.textContent = `📅 ${fechaHoraActual()} · Proveedor: ${proveedor || 'No especificado'}`;
+
+    lista.innerHTML = productos.map(p =>
+        `<li><span>${p.nombre}${p.talla ? ' (Talla ' + p.talla + ')' : ''}</span><span class="cant">+${p.cantidad} ud.</span></li>`
+    ).join('');
+
+    const totalUnidades = productos.reduce((sum, p) => sum + p.cantidad, 0);
+    total.textContent = `📦 Total: ${productos.length} producto(s) · ${totalUnidades} unidad(es) ingresadas`;
+
+    container.style.display = 'block';
     entradaRegistrada = true;
+    habilitarFormularioEntrada(false);
+}
+
+function mostrarComprobanteEntradaUltima() {
+    if (!ultimaRecepcion) { mostrarToast('❌ No hay entradas registradas todavía'); return; }
+    descargarPDFEntrada();
 }
 
 function nuevaEntrada() {
+    carritoEntrada = [];
+    renderCarritoEntrada();
     document.getElementById('entrada-mensaje').style.display = 'none';
     limpiarSeleccionEntrada();
     document.getElementById('entrada-proveedor').value = '';
+    document.getElementById('entrada-obs').value = '';
     entradaRegistrada = false;
-    mostrarToast('🔄 Listo para una nueva entrada');
+    habilitarFormularioEntrada(true);
+    poblarDropdownEntrada();
+    mostrarToast('🔄 Formulario listo para una nueva entrada');
 }
 
 function renderEntradasRecientes() {
@@ -2002,6 +2196,70 @@ function renderInventario() {
 
 function filtrarInventario() {
     renderInventario();
+}
+
+// ============================================================
+// CONTROL DE ACCESO — solo el usuario NVG ve el botón de restablecer
+// ============================================================
+function esUsuarioAdministrador() {
+    return (nombreUsuario || '').trim().toUpperCase() === 'NVG';
+}
+
+function aplicarPermisosAdministrador() {
+    const btn = document.getElementById('btn-restablecer-inventario');
+    if (!btn) return;
+    btn.style.display = esUsuarioAdministrador() ? 'inline-flex' : 'none';
+}
+
+// ============================================================
+// RESTABLECER INVENTARIO (dejar la app "como nueva")
+// Deja todo el stock en 30 unidades y borra el historial de salidas.
+// El historial de entradas y recepciones NO se toca (queda como registro).
+// Acción reservada exclusivamente al usuario NVG.
+// ============================================================
+// ============================================================
+// RESTABLECER INVENTARIO — SOLO PARA USO EN CASO DE EMERGENCIA
+// Deja la app "como nueva": stock en 30 por producto, y borra
+// TODO el historial (salidas, entradas y recepciones/comprobantes).
+// Acción reservada exclusivamente al usuario NVG.
+// ============================================================
+function restablecerInventario() {
+    if (!esUsuarioAdministrador()) {
+        mostrarToast('❌ No tienes permiso para realizar esta acción');
+        return;
+    }
+
+    if (!items || items.length === 0) {
+        mostrarToast('❌ No hay inventario cargado');
+        return;
+    }
+
+    const confirmacion = confirm(
+        '🚨 RESTABLECIMIENTO DE EMERGENCIA 🚨\n\n' +
+        'Esto dejará TODO el stock en 30 unidades por producto y borrará TODO el historial:\n' +
+        '· Salidas\n· Entradas\n· Comprobantes de ingreso (recepciones)\n\n' +
+        'Esta acción no se puede deshacer. ¿Deseas continuar?'
+    );
+    if (!confirmacion) return;
+
+    items.forEach(item => { item.stock = 30; });
+    salidas = [];
+    entradas = [];
+    recepciones = [];
+    ultimoComprobante = null;
+    ultimaRecepcion = null;
+
+    guardarDatos();
+
+    renderInventario();
+    actualizarDashboard();
+    actualizarStockCritico();
+    poblarDropdownProductos();
+    poblarDropdownEntrada();
+    ocultarMensajeDespacho();
+    renderEntradasRecientes();
+
+    mostrarToast('✅ App restablecida: 30 unidades por producto, 0 salidas y 0 entradas');
 }
 
 function actualizarStockCritico() {
@@ -2117,68 +2375,212 @@ function imprimirComprobante() {
     nuevaSalida();
 }
 
-function descargarPDFComprobante() {
-    if (!ultimoComprobante) { mostrarToast('❌ No hay comprobante'); return; }
+// ============================================================
+// GENERADOR BASE DE COMPROBANTES PDF (usado por Salida y Entrada)
+// Mantiene el mismo formato visual: logo, colores y orden.
+// ============================================================
+function generarComprobantePDFBase(config) {
     const { jsPDF } = window.jspdf;
-    const s = ultimoComprobante;
-    const num = String(salidas.indexOf(s) + 1).padStart(4, '0');
     const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
     const pageW = doc.internal.pageSize.getWidth();
-    const margin = 15;
-    
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 16;
+    const azul = [22, 100, 192];
+    const azulOscuro = [15, 74, 138];
+    const grisTexto = [74, 90, 110];
+    const grisClaro = [245, 247, 252];
+    const bordeGris = [226, 232, 240];
+
+    // ===== CABECERA CON BANDA DE COLOR Y LOGO =====
+    const alturaHeader = 32;
+    doc.setFillColor(...azul);
+    doc.rect(0, 0, pageW, alturaHeader, 'F');
+    doc.setFillColor(...azulOscuro);
+    doc.rect(0, alturaHeader - 1.5, pageW, 1.5, 'F');
+
+    if (logoImageData) {
+        try { doc.addImage(logoImageData, 'PNG', margin, 6, 20, 20); } catch (e) { /* si falla, se omite el logo */ }
+    }
+
+    const xTexto = logoImageData ? margin + 26 : margin;
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text('MUNICIPALIDAD DE LAS CONDES', xTexto, 14);
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    doc.text('MUNICIPALIDAD DE LAS CONDES', pageW/2, 15, { align: 'center' });
-    doc.setFontSize(6);
-    doc.text('Depto. Gestión de Riesgos y Desastres', pageW/2, 20, { align: 'center' });
-    doc.setFontSize(8);
-    doc.text('COMPROBANTE DE SALIDA N° ' + num, pageW/2, 28, { align: 'center' });
-    
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    let y = 38;
-    const receptoresText = s.receptores ? s.receptores.map(r => r.nombre + ' (' + r.email + ')').join(', ') : 'No especificado';
-    
+    doc.text('Depto. Gestión de Riesgos y Desastres', xTexto, 20);
+
+    // Recuadro con el número de comprobante, alineado a la derecha
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(pageW - margin - 58, 8, 58, 16, 2, 2, 'F');
+    doc.setTextColor(...azul);
     doc.setFont('helvetica', 'bold');
-    doc.text('Productos entregados:', margin, y);
-    y += 5;
-    doc.setFont('helvetica', 'normal');
-    s.productos.forEach(p => {
-        doc.text(`  ${p.nombre}${p.talla ? ' (' + p.talla + ')' : ''}`, margin, y);
-        doc.text(`${p.cantidad}`, pageW - margin - 10, y, { align: 'right' });
-        y += 5;
-    });
-    y += 4;
-    
-    const lines = [
-        ['Fecha', s.fecha],
-        ['Recibe', receptoresText],
-        ['Entregado por', s.responsable]
-    ];
-    if (s.observacion) lines.push(['Observación', s.observacion]);
-    
-    lines.forEach(([label, value]) => {
+    doc.setFontSize(8);
+    doc.text(config.tituloDocumento, pageW - margin - 29, 14, { align: 'center' });
+    doc.setFontSize(13);
+    doc.text('N° ' + config.numero, pageW - margin - 29, 21, { align: 'center' });
+
+    doc.setTextColor(0, 0, 0);
+
+    // ===== DATOS GENERALES =====
+    let y = alturaHeader + 10;
+    const datosGenerales = config.filasInfo;
+
+    const alturaFilaDatos = 7;
+    const alturaBoxDatos = 6 + datosGenerales.length * alturaFilaDatos;
+    doc.setFillColor(...grisClaro);
+    doc.setDrawColor(...bordeGris);
+    doc.roundedRect(margin, y, pageW - margin * 2, alturaBoxDatos, 2, 2, 'FD');
+
+    let yDatos = y + 8;
+    datosGenerales.forEach(([label, value]) => {
         doc.setFont('helvetica', 'bold');
-        doc.text(label + ':', margin, y);
+        doc.setFontSize(9);
+        doc.setTextColor(...grisTexto);
+        doc.text(label + ':', margin + 5, yDatos);
         doc.setFont('helvetica', 'normal');
-        doc.text(value.length > 40 ? value.substring(0, 39) + '…' : value, margin + 35, y);
-        y += 7;
+        doc.setTextColor(20, 30, 45);
+        const textoValor = doc.splitTextToSize(String(value), pageW - margin * 2 - 55);
+        doc.text(textoValor[0], margin + 45, yDatos);
+        yDatos += alturaFilaDatos;
     });
-    
+
+    y = y + alturaBoxDatos + 10;
+
+    // ===== TÍTULO DE SECCIÓN: PRODUCTOS =====
+    doc.setDrawColor(...azul);
+    doc.setLineWidth(0.8);
+    doc.line(margin, y, margin + 3, y);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...azulOscuro);
+    doc.text(config.tituloProductos, margin + 6, y + 1);
+    y += 6;
+
+    // ===== TABLA DE PRODUCTOS =====
+    const colCantidadW = 24;
+    const colTallaW = 28;
+    const colProductoW = pageW - margin * 2 - colCantidadW - colTallaW;
+
+    function encabezadoTabla(yPos) {
+        doc.setFillColor(...azul);
+        doc.rect(margin, yPos, pageW - margin * 2, 8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.text('Producto', margin + 4, yPos + 5.5);
+        doc.text('Talla', margin + colProductoW + colTallaW / 2, yPos + 5.5, { align: 'center' });
+        doc.text('Cantidad', pageW - margin - colCantidadW / 2, yPos + 5.5, { align: 'center' });
+        return yPos + 8;
+    }
+
+    y = encabezadoTabla(y);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    let filaPar = false;
+    config.productos.forEach((p) => {
+        if (y > pageH - 55) {
+            doc.addPage();
+            y = 16;
+            y = encabezadoTabla(y);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+        }
+        const alturaFila = 8;
+        if (filaPar) {
+            doc.setFillColor(...grisClaro);
+            doc.rect(margin, y, pageW - margin * 2, alturaFila, 'F');
+        }
+        doc.setDrawColor(...bordeGris);
+        doc.rect(margin, y, pageW - margin * 2, alturaFila);
+
+        doc.setTextColor(20, 30, 45);
+        doc.text(p.nombre, margin + 4, y + 5.5);
+        doc.text(p.talla ? p.talla : '—', margin + colProductoW + colTallaW / 2, y + 5.5, { align: 'center' });
+        doc.setFont('helvetica', 'bold');
+        doc.text('+' + String(p.cantidad), pageW - margin - colCantidadW / 2, y + 5.5, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+
+        y += alturaFila;
+        filaPar = !filaPar;
+    });
+
+    // ===== FIRMAS: SIEMPRE AL PIE DE LA ÚLTIMA HOJA =====
+    const yFirmasDeseado = pageH - 40;
+    if (y + 14 > yFirmasDeseado) {
+        // No hay espacio suficiente en esta hoja: las firmas van en una nueva página
+        doc.addPage();
+    }
+    y = yFirmasDeseado;
+
+    doc.setDrawColor(150, 160, 175);
+    doc.setLineWidth(0.4);
+    const anchoFirma = 60;
+    const xFirma1 = margin + 8;
+    const xFirma2 = pageW - margin - 8 - anchoFirma;
+    doc.line(xFirma1, y, xFirma1 + anchoFirma, y);
+    doc.line(xFirma2, y, xFirma2 + anchoFirma, y);
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...grisTexto);
+    doc.text(config.firmaIzqLabel, xFirma1 + anchoFirma / 2, y, { align: 'center' });
+    doc.text(config.firmaDerLabel, xFirma2 + anchoFirma / 2, y, { align: 'center' });
     y += 4;
-    doc.line(margin, y, pageW - margin, y);
-    y += 5;
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
-    doc.text('Entregado por', margin + 20, y);
-    doc.text('Recibido por', margin + 80, y);
-    y += 5;
-    doc.line(margin + 10, y, margin + 45, y);
-    doc.line(margin + 70, y, margin + 105, y);
-    
-    y += 8;
-    doc.setFontSize(6);
-    doc.text('Este comprobante es de carácter informativo', pageW/2, y, { align: 'center' });
-    
+    doc.text(config.firmaIzqNombre || '', xFirma1 + anchoFirma / 2, y, { align: 'center' });
+    doc.text(config.firmaDerNombre || '', xFirma2 + anchoFirma / 2, y, { align: 'center' });
+
+    // ===== PIE DE PÁGINA EN TODAS LAS PÁGINAS =====
+    const totalPaginas = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPaginas; i++) {
+        doc.setPage(i);
+        doc.setDrawColor(...bordeGris);
+        doc.setLineWidth(0.3);
+        doc.line(margin, pageH - 16, pageW - margin, pageH - 16);
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(7);
+        doc.setTextColor(140, 150, 165);
+        doc.text('Este comprobante es de carácter informativo', pageW / 2, pageH - 11, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.text('Municipalidad de Las Condes · Depto. Gestión de Riesgos y Desastres', pageW / 2, pageH - 7, { align: 'center' });
+        doc.text(`Página ${i} de ${totalPaginas}`, pageW - margin, pageH - 7, { align: 'right' });
+    }
+
+    return doc;
+}
+
+// ============================================================
+// PDF COMPROBANTE DE SALIDA
+// ============================================================
+function descargarPDFComprobante() {
+    if (!ultimoComprobante) { mostrarToast('❌ No hay comprobante'); return; }
+    const s = ultimoComprobante;
+    const num = String(salidas.indexOf(s) + 1).padStart(4, '0');
+    const receptoresText = s.receptores ? s.receptores.map(r => r.nombre + (r.email ? ' (' + r.email + ')' : '')).join(', ') : 'No especificado';
+
+    const filasInfo = [
+        ['Fecha de emisión', s.fecha || fechaHoraActual()],
+        ['Recibe', receptoresText],
+        ['Entregado por', s.responsable || nombreUsuario]
+    ];
+    if (s.observacion) filasInfo.push(['Observación', s.observacion]);
+
+    const doc = generarComprobantePDFBase({
+        tituloDocumento: 'COMPROBANTE DE SALIDA',
+        numero: num,
+        filasInfo: filasInfo,
+        productos: s.productos,
+        tituloProductos: 'PRODUCTOS ENTREGADOS',
+        firmaIzqLabel: 'Entregado por',
+        firmaIzqNombre: s.responsable || '',
+        firmaDerLabel: 'Recibido por',
+        firmaDerNombre: (s.receptores && s.receptores[0]) ? s.receptores[0].nombre : ''
+    });
+
     doc.save(`Comprobante_Salida_${s.id}.pdf`);
     mostrarToast('✅ PDF descargado');
     cerrarModalComprobante();
@@ -2197,6 +2599,37 @@ function descargarPDFDespacho(salida) {
 }
 
 // ============================================================
+// PDF COMPROBANTE DE INGRESO (ENTRADA) — mismo formato que Salida
+// ============================================================
+function descargarPDFEntrada() {
+    if (!ultimaRecepcion) { mostrarToast('❌ No hay entrada para exportar'); return; }
+    const r = ultimaRecepcion;
+    const num = String(recepciones.indexOf(r) + 1).padStart(4, '0');
+
+    const filasInfo = [
+        ['Fecha de emisión', r.fecha || fechaHoraActual()],
+        ['Proveedor', r.proveedor || 'No especificado'],
+        ['Recibido por', r.responsable || nombreUsuario]
+    ];
+    if (r.observacion) filasInfo.push(['Observación', r.observacion]);
+
+    const doc = generarComprobantePDFBase({
+        tituloDocumento: 'COMPROBANTE DE INGRESO',
+        numero: num,
+        filasInfo: filasInfo,
+        productos: r.productos,
+        tituloProductos: 'PRODUCTOS INGRESADOS',
+        firmaIzqLabel: 'Entregado por (proveedor)',
+        firmaIzqNombre: r.proveedor || '',
+        firmaDerLabel: 'Recibido por',
+        firmaDerNombre: r.responsable || ''
+    });
+
+    doc.save(`Comprobante_Ingreso_${r.id}.pdf`);
+    mostrarToast('✅ PDF de respaldo descargado');
+}
+
+// ============================================================
 // PDF DE INVENTARIO - VERTICAL
 // ============================================================
 function generarPDFInventario() {
@@ -2204,92 +2637,154 @@ function generarPDFInventario() {
     const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
-    const margin = 12;
-    let y = 20;
-    
+    const margin = 16;
+    const azul = [22, 100, 192];
+    const azulOscuro = [15, 74, 138];
+    const grisTexto = [74, 90, 110];
+    const grisClaro = [245, 247, 252];
+    const bordeGris = [226, 232, 240];
+    const rojoCritico = [200, 0, 0];
+
+    // ===== CABECERA CON BANDA DE COLOR Y LOGO (mismo estilo que los comprobantes) =====
+    const alturaHeader = 32;
+    doc.setFillColor(...azul);
+    doc.rect(0, 0, pageW, alturaHeader, 'F');
+    doc.setFillColor(...azulOscuro);
+    doc.rect(0, alturaHeader - 1.5, pageW, 1.5, 'F');
+
+    if (logoImageData) {
+        try { doc.addImage(logoImageData, 'PNG', margin, 6, 20, 20); } catch (e) { /* si falla, se omite el logo */ }
+    }
+
+    const xTexto = logoImageData ? margin + 26 : margin;
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.text('MUNICIPALIDAD DE LAS CONDES', pageW/2, y, { align: 'center' });
-    y += 6;
-    doc.setFontSize(10);
-    doc.text('Depto. Gestión de Riesgos y Desastres', pageW/2, y, { align: 'center' });
-    y += 6;
+    doc.setFontSize(13);
+    doc.text('MUNICIPALIDAD DE LAS CONDES', xTexto, 14);
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    doc.text('INVENTARIO COMPLETO', pageW/2, y, { align: 'center' });
-    y += 5;
+    doc.text('Depto. Gestión de Riesgos y Desastres', xTexto, 20);
+
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(pageW - margin - 58, 8, 58, 16, 2, 2, 'F');
+    doc.setTextColor(...azul);
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
-    doc.text(`Fecha: ${fechaHoraActual()}`, pageW/2, y, { align: 'center' });
-    y += 8;
-    
+    doc.text('INVENTARIO', pageW - margin - 29, 14, { align: 'center' });
+    doc.setFontSize(9);
+    doc.text(fechaActual(), pageW - margin - 29, 21, { align: 'center' });
+
+    doc.setTextColor(0, 0, 0);
+
+    // ===== RESUMEN =====
+    let y = alturaHeader + 10;
     const itemsConStock = items.filter(i => i.stock > 0);
     const itemsCriticos = items.filter(i => i.stock > 0 && i.stock <= 3);
-    
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.text(`Total productos con stock: ${itemsConStock.length}  |  Stock crítico (≤3): ${itemsCriticos.length}`, margin, y);
-    y += 6;
-    
-    const cols = ['Producto', 'Talla', 'Stock'];
-    const colWidths = [90, 30, 40];
-    
-    doc.setFillColor(22, 100, 192);
-    doc.setTextColor(255, 255, 255);
-    doc.rect(margin, y - 4, pageW - margin * 2, 6, 'F');
-    let x = margin;
-    cols.forEach((col, i) => {
+
+    const resumenInfo = [
+        ['Fecha de emisión', fechaHoraActual()],
+        ['Total productos con stock', String(itemsConStock.length)],
+        ['Stock crítico (≤ 3 uds.)', String(itemsCriticos.length)]
+    ];
+
+    const alturaFilaDatos = 7;
+    const alturaBoxDatos = 6 + resumenInfo.length * alturaFilaDatos;
+    doc.setFillColor(...grisClaro);
+    doc.setDrawColor(...bordeGris);
+    doc.roundedRect(margin, y, pageW - margin * 2, alturaBoxDatos, 2, 2, 'FD');
+
+    let yDatos = y + 8;
+    resumenInfo.forEach(([label, value]) => {
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.text(col, x + 1, y + 1);
-        x += colWidths[i];
+        doc.setFontSize(9);
+        doc.setTextColor(...grisTexto);
+        doc.text(label + ':', margin + 5, yDatos);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(20, 30, 45);
+        doc.text(value, margin + 65, yDatos);
+        yDatos += alturaFilaDatos;
     });
+
+    y = y + alturaBoxDatos + 10;
+
+    // ===== TÍTULO DE SECCIÓN =====
+    doc.setDrawColor(...azul);
+    doc.setLineWidth(0.8);
+    doc.line(margin, y, margin + 3, y);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...azulOscuro);
+    doc.text('DETALLE DE PRODUCTOS', margin + 6, y + 1);
     y += 6;
-    doc.setTextColor(0, 0, 0);
-    
+
+    // ===== TABLA DE INVENTARIO =====
+    const colStockW = 30;
+    const colTallaW = 28;
+    const colProductoW = pageW - margin * 2 - colStockW - colTallaW;
+
+    function encabezadoTabla(yPos) {
+        doc.setFillColor(...azul);
+        doc.rect(margin, yPos, pageW - margin * 2, 8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.text('Producto', margin + 4, yPos + 5.5);
+        doc.text('Talla', margin + colProductoW + colTallaW / 2, yPos + 5.5, { align: 'center' });
+        doc.text('Stock', pageW - margin - colStockW / 2, yPos + 5.5, { align: 'center' });
+        return yPos + 8;
+    }
+
+    y = encabezadoTabla(y);
+
     // Ordenar alfabéticamente por nombre
     const sortedItems = [...itemsConStock].sort((a, b) => a.nombre.localeCompare(b.nombre));
-    
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    let filaPar = false;
     sortedItems.forEach((item) => {
-        if (y > pageH - 15) {
+        if (y > pageH - 25) {
             doc.addPage();
-            y = 15;
-            doc.setFillColor(22, 100, 192);
-            doc.setTextColor(255, 255, 255);
-            doc.rect(margin, y - 4, pageW - margin * 2, 6, 'F');
-            x = margin;
-            cols.forEach((col, i) => {
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(8);
-                doc.text(col, x + 1, y + 1);
-                x += colWidths[i];
-            });
-            y += 6;
-            doc.setTextColor(0, 0, 0);
-        }
-        
-        if (item.stock <= 3) {
-            doc.setTextColor(200, 0, 0);
-            doc.setFont('helvetica', 'bold');
-        } else {
-            doc.setTextColor(0, 0, 0);
+            y = 16;
+            y = encabezadoTabla(y);
             doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
         }
-        
-        doc.setFontSize(8);
-        x = margin;
-        doc.text(item.nombre, x, y);
-        x += colWidths[0];
-        doc.text(item.talla || '—', x, y);
-        x += colWidths[1];
-        doc.text(String(item.stock), x, y, { align: 'right' });
-        
-        y += 5;
+        const alturaFila = 8;
+        if (filaPar) {
+            doc.setFillColor(...grisClaro);
+            doc.rect(margin, y, pageW - margin * 2, alturaFila, 'F');
+        }
+        doc.setDrawColor(...bordeGris);
+        doc.rect(margin, y, pageW - margin * 2, alturaFila);
+
+        const esCritico = item.stock <= 3;
+        doc.setTextColor(...(esCritico ? rojoCritico : [20, 30, 45]));
+        doc.setFont('helvetica', esCritico ? 'bold' : 'normal');
+        doc.text(item.nombre, margin + 4, y + 5.5);
+        doc.text(item.talla || '—', margin + colProductoW + colTallaW / 2, y + 5.5, { align: 'center' });
+        doc.text(String(item.stock), pageW - margin - colStockW / 2, y + 5.5, { align: 'center' });
+
+        y += alturaFila;
+        filaPar = !filaPar;
     });
-    
-    doc.setTextColor(100, 100, 100);
-    doc.setFontSize(7);
-    doc.text('Municipalidad de Las Condes · Depto. Gestión de Riesgos y Desastres', pageW/2, pageH - 8, { align: 'center' });
-    doc.text(`Generado: ${fechaHoraActual()}`, pageW/2, pageH - 4, { align: 'center' });
-    
+
+    // ===== PIE DE PÁGINA EN TODAS LAS PÁGINAS =====
+    const totalPaginas = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPaginas; i++) {
+        doc.setPage(i);
+        doc.setDrawColor(...bordeGris);
+        doc.setLineWidth(0.3);
+        doc.line(margin, pageH - 16, pageW - margin, pageH - 16);
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(7);
+        doc.setTextColor(140, 150, 165);
+        doc.text('Documento generado automáticamente por el sistema de inventario GRRD', pageW / 2, pageH - 11, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.text('Municipalidad de Las Condes · Depto. Gestión de Riesgos y Desastres', pageW / 2, pageH - 7, { align: 'center' });
+        doc.text(`Página ${i} de ${totalPaginas}`, pageW - margin, pageH - 7, { align: 'right' });
+    }
+
     doc.save(`Inventario_GRD_${fechaActual()}.pdf`);
     mostrarToast('✅ PDF de inventario descargado');
 }
@@ -2373,8 +2868,10 @@ function exportarInventarioExcel() {
 // INICIALIZACIÓN
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {
+    precargarLogoPDF();
     cargarSalidas();
     cargarEntradas();
+    cargarRecepciones();
     
     const datosCargados = cargarDatos();
     
@@ -2390,6 +2887,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     nombreUsuario = prompt('Ingresa tu nombre:', 'Personal GRRD') || 'Personal GRRD';
+    aplicarPermisosAdministrador();
     
     renderizarTodo();
     renderEntradasRecientes();
